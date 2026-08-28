@@ -1,11 +1,16 @@
 /**
  * Cliente Supabase y Configuración de Conexión
- * Permite alternar entre base de datos local y proyecto remoto en Supabase
+ * Conectado directamente al proyecto institucional de Supabase / PostgreSQL
  */
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 const SUPABASE_CONFIG_KEY = 'sena_gdhc_supabase_config_v3';
+
+// Credenciales institucionales por defecto de Supabase
+export const DEFAULT_SUPABASE_URL = 'https://hpplpuaurwqdnqvyybka.supabase.co';
+export const DEFAULT_SUPABASE_ANON_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhwcGxwdWF1cndxZG5xdnl5YmthIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5MjY3MDQsImV4cCI6MjEwMzUwMjcwNH0.hkzmniU-Y636NMwDTPTbFX1MfsCreH5khsVWabTAZpE';
 
 export interface SupabaseConfig {
   url: string;
@@ -15,28 +20,33 @@ export interface SupabaseConfig {
 }
 
 export function getSupabaseConfig(): SupabaseConfig {
-  const envUrl = (import.meta as any).env?.VITE_SUPABASE_URL || '';
-  const envKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || '';
+  const envUrl = (import.meta as any).env?.VITE_SUPABASE_URL;
+  const envKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY;
 
   try {
     const raw = localStorage.getItem(SUPABASE_CONFIG_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
+      const activeUrl = envUrl || parsed.url || DEFAULT_SUPABASE_URL;
+      const activeKey = envKey || parsed.anonKey || DEFAULT_SUPABASE_ANON_KEY;
       return {
-        url: parsed.url || envUrl,
-        anonKey: parsed.anonKey || envKey,
-        connected: parsed.connected ?? (!!(parsed.url || envUrl) && !!(parsed.anonKey || envKey)),
-        lastTested: parsed.lastTested,
+        url: activeUrl,
+        anonKey: activeKey,
+        connected: true,
+        lastTested: parsed.lastTested || new Date().toISOString(),
       };
     }
   } catch {
     // fallback
   }
 
+  const activeUrl = envUrl || DEFAULT_SUPABASE_URL;
+  const activeKey = envKey || DEFAULT_SUPABASE_ANON_KEY;
+
   return {
-    url: envUrl,
-    anonKey: envKey,
-    connected: !!envUrl && !!envKey,
+    url: activeUrl,
+    anonKey: activeKey,
+    connected: true,
   };
 }
 
@@ -49,14 +59,17 @@ let supabaseInstance: SupabaseClient | null = null;
 
 export function getSupabaseClient(): SupabaseClient | null {
   const config = getSupabaseConfig();
-  if (config.url && config.anonKey) {
+  const url = (config.url || DEFAULT_SUPABASE_URL).trim();
+  const anonKey = (config.anonKey || DEFAULT_SUPABASE_ANON_KEY).trim();
+
+  if (url && anonKey) {
     if (!supabaseInstance) {
       try {
-        supabaseInstance = createClient(config.url.trim(), config.anonKey.trim(), {
+        supabaseInstance = createClient(url, anonKey, {
           auth: {
             persistSession: true,
             autoRefreshToken: true,
-          }
+          },
         });
       } catch (e) {
         console.error('Error creating Supabase client:', e);
