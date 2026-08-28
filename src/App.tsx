@@ -21,7 +21,13 @@ export default function App() {
   const [horarios, setHorarios] = useState<Horario[]>([]);
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
   const [currentUser, setCurrentUser] = useState<Profile | null>(null);
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(true);
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
+    try {
+      return sessionStorage.getItem('sena_gdhc_logged_in') === 'true';
+    } catch {
+      return false;
+    }
+  });
 
   // Toast / Status Message
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
@@ -59,6 +65,11 @@ export default function App() {
 
   // Manejo de inicio de sesión desde el portal
   const handleLogin = (user: Profile) => {
+    try {
+      sessionStorage.setItem('sena_gdhc_logged_in', 'true');
+    } catch {
+      // ignore
+    }
     db.setCurrentUserId(user.id);
     setCurrentUser(user);
     setIsLoggedIn(true);
@@ -68,6 +79,11 @@ export default function App() {
 
   // Manejo de cierre de sesión
   const handleLogout = () => {
+    try {
+      sessionStorage.removeItem('sena_gdhc_logged_in');
+    } catch {
+      // ignore
+    }
     setIsLoggedIn(false);
     showToast('Has cerrado la sesión correctamente.', 'info');
   };
@@ -145,6 +161,11 @@ export default function App() {
     showToast(`Carga Masiva Exitosa: Se insertaron ${res.insertedCount} bloques de horario válidos.`, 'success');
   };
 
+  // Renderizar Portal de Inicio de Sesión si la sesión está cerrada
+  if (!isLoggedIn) {
+    return <LoginView profiles={profiles.length > 0 ? profiles : db.getProfiles()} onLogin={handleLogin} />;
+  }
+
   if (!currentUser || profiles.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#F5F5F5]">
@@ -154,11 +175,6 @@ export default function App() {
         </div>
       </div>
     );
-  }
-
-  // Renderizar Portal de Inicio de Sesión si la sesión está cerrada
-  if (!isLoggedIn) {
-    return <LoginView profiles={profiles} onLogin={handleLogin} />;
   }
 
   return (
