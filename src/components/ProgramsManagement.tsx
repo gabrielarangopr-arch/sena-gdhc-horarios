@@ -46,7 +46,7 @@ export const ProgramsManagement: React.FC<ProgramsManagementProps> = ({
     setShowModal(true);
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
 
@@ -56,7 +56,7 @@ export const ProgramsManagement: React.FC<ProgramsManagementProps> = ({
     }
 
     if (editingProg) {
-      const res = db.updatePrograma(editingProg.id, {
+      const res = await db.updatePrograma(editingProg.id, {
         codigo_ficha: codigoFicha.trim(),
         nombre_programa: nombrePrograma.trim(),
         jornada,
@@ -69,7 +69,7 @@ export const ProgramsManagement: React.FC<ProgramsManagementProps> = ({
         return;
       }
     } else {
-      const res = db.createPrograma({
+      const res = await db.createPrograma({
         codigo_ficha: codigoFicha.trim(),
         nombre_programa: nombrePrograma.trim(),
         jornada,
@@ -87,9 +87,9 @@ export const ProgramsManagement: React.FC<ProgramsManagementProps> = ({
     setShowModal(false);
   };
 
-  const handleDelete = (prog: Programa) => {
+  const handleDelete = async (prog: Programa) => {
     if (confirm(`¿Eliminar la ficha ${prog.codigo_ficha} (${prog.nombre_programa})?`)) {
-      db.deletePrograma(prog.id);
+      await db.deletePrograma(prog.id);
       onRefresh();
     }
   };

@@ -13,6 +13,7 @@ import {
   LogOut
 } from 'lucide-react';
 import { Profile, Notificacion } from '../types';
+import { db } from '../services/db';
 import { NotificationPopover } from './NotificationPopover';
 import { SupabaseConfigModal } from './SupabaseConfigModal';
 
@@ -25,6 +26,7 @@ interface HeaderProps {
   onMarkNotificationRead: (id: string) => void;
   onMarkAllNotificationsRead: () => void;
   onResetData: () => void;
+  onRefreshData?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -36,11 +38,13 @@ export const Header: React.FC<HeaderProps> = ({
   onMarkNotificationRead,
   onMarkAllNotificationsRead,
   onResetData,
+  onRefreshData,
 }) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showDbModal, setShowDbModal] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
 
+  const isConnectedToSupabase = db.isSupabaseConnected();
   const unreadCount = notificaciones.filter(n => !n.leido).length;
 
   const getRoleBadge = (rol: string) => {
@@ -84,15 +88,19 @@ export const Header: React.FC<HeaderProps> = ({
           <span className="text-gray-300">|</span>
           <span className="text-gray-200">Sistema GDHC v2.0 Production-Ready</span>
         </div>
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-3">
           <span className="text-gray-300 hidden sm:inline">Motor de Reglas OVERLAPS Activo</span>
           <button
             onClick={() => setShowDbModal(true)}
-            className="flex items-center space-x-1 text-[#b5dcfe] hover:text-white transition-colors cursor-pointer"
-            title="Ver conexión y script SQL para Supabase"
+            className={`flex items-center space-x-1.5 px-2 py-0.5 rounded text-xs font-medium transition-all cursor-pointer ${
+              isConnectedToSupabase
+                ? 'bg-[#39A900]/20 text-[#a2f779] hover:bg-[#39A900]/30 border border-[#39A900]/40'
+                : 'bg-white/10 text-gray-200 hover:bg-white/20 border border-white/20'
+            }`}
+            title="Ver conexión y configuración de Supabase / PostgreSQL"
           >
             <Database className="w-3.5 h-3.5" />
-            <span className="underline decoration-dotted">Supabase / PostgreSQL</span>
+            <span>{isConnectedToSupabase ? 'Supabase Conectado' : 'Supabase (Configurar)'}</span>
           </button>
         </div>
       </div>
@@ -260,7 +268,14 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* Supabase Config / SQL Script Modal */}
-      {showDbModal && <SupabaseConfigModal onClose={() => setShowDbModal(false)} />}
+      {showDbModal && (
+        <SupabaseConfigModal
+          onClose={() => setShowDbModal(false)}
+          onConfigSaved={() => {
+            if (onRefreshData) onRefreshData();
+          }}
+        />
+      )}
     </header>
   );
 };

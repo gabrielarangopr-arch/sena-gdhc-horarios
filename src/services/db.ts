@@ -1,10 +1,12 @@
 /**
  * Base de datos relacional y persistencia para GDHC / SENA
- * Implementa la estructura relacional de Supabase (PostgreSQL, RLS y Triggers)
+ * Implementa sincronización en tiempo real con Supabase (PostgreSQL, RLS y Triggers)
+ * con fallback seguro en LocalStorage.
  */
 
 import { Profile, Programa, Ambiente, Horario, Notificacion, UserRole } from '../types';
 import { validateHorarioOverlap } from './overlapEngine';
+import { getSupabaseClient, getSupabaseConfig } from './supabaseClient';
 
 const STORAGE_KEYS = {
   PROFILES: 'sena_gdhc_profiles_v3',
@@ -15,10 +17,22 @@ const STORAGE_KEYS = {
   CURRENT_USER_ID: 'sena_gdhc_current_user_id_v3',
 };
 
-// Seed Data Inicial Institucional del SENA - Único Administrador Registrado (Sin datos simulados)
+// Generador de UUID v4 estándar compatible con PostgreSQL UUID
+export function generateUUID(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+// Seed Data Inicial Institucional del SENA (Único Administrador Registrado con UUID válido)
 export const SEED_PROFILES: Profile[] = [
   {
-    id: 'usr-admin-01',
+    id: '00000000-0000-0000-0000-000000000001',
     cedula: '1020405060',
     nombre_completo: 'Gabriel Arango',
     email: 'gabrielarangopr@gmail.com',
@@ -35,6 +49,13 @@ export const SEED_HORARIOS: Horario[] = [];
 export const SEED_NOTIFICACIONES: Notificacion[] = [];
 
 class SenaDatabaseService {
+  private profilesCache: Profile[] = [];
+  private programasCache: Programa[] = [];
+  private ambientesCache: Ambiente[] = [];
+  private horariosCache: Horario[] = [];
+  private notificacionesCache: Notificacion[] = [];
+  private isSyncing = false;
+
   private getStorageItem<T>(key: string, fallback: T): T {
     try {
       const data = localStorage.getItem(key);
@@ -54,16 +75,114 @@ class SenaDatabaseService {
   }
 
   constructor() {
-    this.initializeIfEmpty();
+    this.initializeFromStorage();
   }
 
-  public initializeIfEmpty(): void {
-    if (!localStorage.getItem(STORAGE_KEYS.PROFILES)) {
-      this.resetToSeed();
+  public initializeFromStorage(): void {
+    this.profilesCache = this.getStorageItem<Profile[]>(STORAGE_KEYS.PROFILES, SEED_PROFILES);
+    this.programasCache = this.getStorageItem<Programa[]>(STORAGE_KEYS.PROGRAMAS, SEED_PROGRAMAS);
+    this.ambientesCache = this.getStorageItem<Ambiente[]>(STORAGE_KEYS.AMBIENTES, SEED_AMBIENTES);
+    this.horariosCache = this.getStorageItem<Horario[]>(STORAGE_KEYS.HORARIOS, SEED_HORARIOS);
+    this.notificacionesCache = this.getStorageItem<Notificacion[]>(STORAGE_KEYS.NOTIFICACIONES, SEED_NOTIFICACIONES);
+  }
+
+  public isSupabaseConnected(): boolean {
+    const supabase = getSupabaseClient();
+    return !!supabase;
+  }
+
+  /**
+   * Sincroniza en segundo plano todas las tablas directamente con Supabase PostgreSQL
+   */
+  public async syncFromSupabase(): Promise<{ success: boolean; message?: string }> {
+    const supabase = getSupabaseClient();
+    if (!supabase || this.isSyncing) {
+      return { success: false, message: 'Supabase no está configurado.' };
+    }
+
+    this.isSyncing = true;
+    try {
+      // 1. Perfiles
+      const { data: profs, error: pErr } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: true });
+
+      if (pErr) {
+        console.warn('Error fetching profiles from Supabase:', pErr);
+      } else if (profs) {
+        this.profilesCache = profs;
+        this.setStorageItem(STORAGE_KEYS.PROFILES, profs);
+      }
+
+      // 2. Programas
+      const { data: progs, error: prgErr } = await supabase
+        .from('programas')
+        .select('*')
+        .order('created_at', { ascending: true });
+
+      if (prgErr) {
+        console.warn('Error fetching programas from Supabase:', prgErr);
+      } else if (progs) {
+        this.programasCache = progs;
+        this.setStorageItem(STORAGE_KEYS.PROGRAMAS, progs);
+      }
+
+      // 3. Ambientes
+      const { data: ambs, error: ambErr } = await supabase
+        .from('ambientes')
+        .select('*')
+        .order('created_at', { ascending: true });
+
+      if (ambErr) {
+        console.warn('Error fetching ambientes from Supabase:', ambErr);
+      } else if (ambs) {
+        this.ambientesCache = ambs;
+        this.setStorageItem(STORAGE_KEYS.AMBIENTES, ambs);
+      }
+
+      // 4. Horarios
+      const { data: hors, error: hErr } = await supabase
+        .from('horarios')
+        .select('*')
+        .order('created_at', { ascending: true });
+
+      if (hErr) {
+        console.warn('Error fetching horarios from Supabase:', hErr);
+      } else if (hors) {
+        this.horariosCache = hors;
+        this.setStorageItem(STORAGE_KEYS.HORARIOS, hors);
+      }
+
+      // 5. Notificaciones
+      const { data: notifs, error: nErr } = await supabase
+        .from('notificaciones')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (nErr) {
+        console.warn('Error fetching notificaciones from Supabase:', nErr);
+      } else if (notifs) {
+        this.notificacionesCache = notifs;
+        this.setStorageItem(STORAGE_KEYS.NOTIFICACIONES, notifs);
+      }
+
+      this.isSyncing = false;
+      return { success: true, message: 'Datos sincronizados exitosamente con Supabase.' };
+    } catch (err: any) {
+      this.isSyncing = false;
+      console.error('Error in syncFromSupabase:', err);
+      return { success: false, message: err?.message || 'Error de red con Supabase.' };
     }
   }
 
   public resetToSeed(): void {
+    this.profilesCache = [...SEED_PROFILES];
+    this.programasCache = [...SEED_PROGRAMAS];
+    this.ambientesCache = [...SEED_AMBIENTES];
+    this.horariosCache = [...SEED_HORARIOS];
+    this.notificacionesCache = [...SEED_NOTIFICACIONES];
+
     this.setStorageItem(STORAGE_KEYS.PROFILES, SEED_PROFILES);
     this.setStorageItem(STORAGE_KEYS.PROGRAMAS, SEED_PROGRAMAS);
     this.setStorageItem(STORAGE_KEYS.AMBIENTES, SEED_AMBIENTES);
@@ -74,7 +193,9 @@ class SenaDatabaseService {
 
   // --- PROFILES / USUARIOS ---
   public getProfiles(): Profile[] {
-    return this.getStorageItem<Profile[]>(STORAGE_KEYS.PROFILES, SEED_PROFILES);
+    return this.profilesCache.length > 0
+      ? this.profilesCache
+      : this.getStorageItem<Profile[]>(STORAGE_KEYS.PROFILES, SEED_PROFILES);
   }
 
   public getProfileById(id: string): Profile | undefined {
@@ -93,203 +214,365 @@ class SenaDatabaseService {
     return this.getProfiles().filter(p => p.rol === 'aprendiz');
   }
 
-  public createProfile(profileData: Omit<Profile, 'id' | 'created_at'>): { success: boolean; profile?: Profile; error?: string } {
-    const profiles = this.getProfiles();
-
-    // Validar cédula única
+  public async createProfile(profileData: Omit<Profile, 'id' | 'created_at'>): Promise<{ success: boolean; profile?: Profile; error?: string }> {
     const cleanCedula = profileData.cedula.trim();
     if (!cleanCedula) {
       return { success: false, error: 'El número de Cédula de Ciudadanía es obligatorio.' };
     }
-    if (profiles.some(p => p.cedula.trim() === cleanCedula)) {
-      return { success: false, error: `Ya existe un usuario registrado con la cédula ${cleanCedula}.` };
-    }
 
-    // Validar email único
     const cleanEmail = profileData.email.trim().toLowerCase();
-    if (cleanEmail && profiles.some(p => p.email.trim().toLowerCase() === cleanEmail)) {
-      return { success: false, error: `Ya existe un usuario registrado con el correo ${cleanEmail}.` };
-    }
-
+    const newId = generateUUID();
     const newProfile: Profile = {
       ...profileData,
-      id: `usr-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`,
+      id: newId,
       cedula: cleanCedula,
       email: cleanEmail || `${cleanCedula}@sena.edu.co`,
       created_at: new Date().toISOString(),
     };
 
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .insert([
+            {
+              id: newProfile.id,
+              cedula: newProfile.cedula,
+              nombre_completo: newProfile.nombre_completo,
+              email: newProfile.email,
+              rol: newProfile.rol,
+              especialidad: newProfile.especialidad || null,
+              telefono: newProfile.telefono || null,
+              ficha_id: newProfile.ficha_id || null,
+            },
+          ])
+          .select()
+          .single();
+
+        if (error) {
+          console.error('Supabase createProfile error:', error);
+          if (error.code === '23505') {
+            return { success: false, error: `Ya existe un usuario con la cédula o correo ingresado en la base de datos (${error.message}).` };
+          }
+          return { success: false, error: `Error de Supabase: ${error.message}` };
+        }
+
+        if (data) {
+          this.profilesCache = [...this.profilesCache, data];
+          this.setStorageItem(STORAGE_KEYS.PROFILES, this.profilesCache);
+          return { success: true, profile: data };
+        }
+      } catch (err: any) {
+        return { success: false, error: err?.message || 'Error de conexión con Supabase.' };
+      }
+    }
+
+    // Modo local / Fallback
+    const profiles = this.getProfiles();
+    if (profiles.some(p => p.cedula.trim() === cleanCedula)) {
+      return { success: false, error: `Ya existe un usuario registrado con la cédula ${cleanCedula}.` };
+    }
+    if (cleanEmail && profiles.some(p => p.email.trim().toLowerCase() === cleanEmail)) {
+      return { success: false, error: `Ya existe un usuario registrado con el correo ${cleanEmail}.` };
+    }
+
     profiles.push(newProfile);
+    this.profilesCache = profiles;
     this.setStorageItem(STORAGE_KEYS.PROFILES, profiles);
     return { success: true, profile: newProfile };
   }
 
-  public updateProfile(id: string, updates: Partial<Profile>): { success: boolean; profile?: Profile; error?: string } {
+  public async updateProfile(id: string, updates: Partial<Profile>): Promise<{ success: boolean; profile?: Profile; error?: string }> {
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      try {
+        const payload: any = { ...updates };
+        delete payload.id;
+        delete payload.created_at;
+
+        const { data, error } = await supabase
+          .from('profiles')
+          .update(payload)
+          .eq('id', id)
+          .select()
+          .single();
+
+        if (error) {
+          return { success: false, error: `Error de Supabase: ${error.message}` };
+        }
+
+        if (data) {
+          this.profilesCache = this.profilesCache.map(p => (p.id === id ? { ...p, ...data } : p));
+          this.setStorageItem(STORAGE_KEYS.PROFILES, this.profilesCache);
+          return { success: true, profile: data };
+        }
+      } catch (err: any) {
+        return { success: false, error: err?.message || 'Error al actualizar en Supabase.' };
+      }
+    }
+
+    // Modo local
     const profiles = this.getProfiles();
     const index = profiles.findIndex(p => p.id === id);
     if (index === -1) return { success: false, error: 'Usuario no encontrado.' };
 
-    if (updates.cedula) {
-      const cleanCedula = updates.cedula.trim();
-      if (profiles.some(p => p.id !== id && p.cedula.trim() === cleanCedula)) {
-        return { success: false, error: `La cédula ${cleanCedula} ya está en uso por otro usuario.` };
-      }
-    }
-
-    if (updates.email) {
-      const cleanEmail = updates.email.trim().toLowerCase();
-      if (profiles.some(p => p.id !== id && p.email.trim().toLowerCase() === cleanEmail)) {
-        return { success: false, error: `El correo ${cleanEmail} ya está en uso por otro usuario.` };
-      }
-    }
-
     profiles[index] = { ...profiles[index], ...updates };
+    this.profilesCache = profiles;
     this.setStorageItem(STORAGE_KEYS.PROFILES, profiles);
     return { success: true, profile: profiles[index] };
   }
 
-  public deleteProfile(id: string): { success: boolean; error?: string } {
-    let profiles = this.getProfiles();
-    const target = profiles.find(p => p.id === id);
-    if (!target) return { success: false, error: 'Usuario no encontrado.' };
-
-    if (target.rol === 'admin' && profiles.filter(p => p.rol === 'admin').length <= 1) {
-      return { success: false, error: 'No es posible eliminar al único Administrador del sistema.' };
+  public async deleteProfile(id: string): Promise<{ success: boolean; error?: string }> {
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      try {
+        const { error } = await supabase.from('profiles').delete().eq('id', id);
+        if (error) {
+          return { success: false, error: `Error de Supabase: ${error.message}` };
+        }
+      } catch (err: any) {
+        return { success: false, error: err?.message || 'Error al eliminar en Supabase.' };
+      }
     }
 
-    // Comprobar si tiene horarios asignados
-    const horarios = this.getHorarios();
-    if (horarios.some(h => h.instructor_id === id)) {
-      return { success: false, error: 'No se puede eliminar el instructor porque tiene horarios de clase programados.' };
-    }
-
-    profiles = profiles.filter(p => p.id !== id);
-    this.setStorageItem(STORAGE_KEYS.PROFILES, profiles);
+    this.profilesCache = this.profilesCache.filter(p => p.id !== id);
+    this.setStorageItem(STORAGE_KEYS.PROFILES, this.profilesCache);
     return { success: true };
   }
 
   // --- PROGRAMAS / FICHAS ---
   public getProgramas(): Programa[] {
-    return this.getStorageItem<Programa[]>(STORAGE_KEYS.PROGRAMAS, SEED_PROGRAMAS);
+    return this.programasCache.length > 0
+      ? this.programasCache
+      : this.getStorageItem<Programa[]>(STORAGE_KEYS.PROGRAMAS, SEED_PROGRAMAS);
   }
 
   public getProgramaById(id: string): Programa | undefined {
     return this.getProgramas().find(p => p.id === id);
   }
 
-  public createPrograma(progData: Omit<Programa, 'id' | 'created_at'>): { success: boolean; programa?: Programa; error?: string } {
-    const programas = this.getProgramas();
+  public async createPrograma(progData: Omit<Programa, 'id' | 'created_at'>): Promise<{ success: boolean; programa?: Programa; error?: string }> {
     const cleanFicha = progData.codigo_ficha.trim();
-
     if (!cleanFicha) {
       return { success: false, error: 'El código de ficha es obligatorio.' };
     }
 
-    if (programas.some(p => p.codigo_ficha.trim() === cleanFicha)) {
-      return { success: false, error: `Ya existe una ficha registrada con el código ${cleanFicha}.` };
-    }
-
+    const newId = generateUUID();
     const newProg: Programa = {
       ...progData,
-      id: `prog-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`,
+      id: newId,
       codigo_ficha: cleanFicha,
       created_at: new Date().toISOString(),
     };
 
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('programas')
+          .insert([
+            {
+              id: newProg.id,
+              codigo_ficha: newProg.codigo_ficha,
+              nombre_programa: newProg.nombre_programa,
+              jornada: newProg.jornada,
+              nivel_formacion: newProg.nivel_formacion || 'Tecnólogo',
+              centro_formacion: newProg.centro_formacion || '',
+              cupos: newProg.cupos || 30,
+            },
+          ])
+          .select()
+          .single();
+
+        if (error) {
+          return { success: false, error: `Error de Supabase: ${error.message}` };
+        }
+
+        if (data) {
+          this.programasCache = [...this.programasCache, data];
+          this.setStorageItem(STORAGE_KEYS.PROGRAMAS, this.programasCache);
+          return { success: true, programa: data };
+        }
+      } catch (err: any) {
+        return { success: false, error: err?.message || 'Error al conectar con Supabase.' };
+      }
+    }
+
+    const programas = this.getProgramas();
+    if (programas.some(p => p.codigo_ficha.trim() === cleanFicha)) {
+      return { success: false, error: `Ya existe una ficha registrada con el código ${cleanFicha}.` };
+    }
+
     programas.push(newProg);
+    this.programasCache = programas;
     this.setStorageItem(STORAGE_KEYS.PROGRAMAS, programas);
     return { success: true, programa: newProg };
   }
 
-  public updatePrograma(id: string, updates: Partial<Programa>): { success: boolean; programa?: Programa; error?: string } {
+  public async updatePrograma(id: string, updates: Partial<Programa>): Promise<{ success: boolean; programa?: Programa; error?: string }> {
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      try {
+        const payload: any = { ...updates };
+        delete payload.id;
+        delete payload.created_at;
+
+        const { data, error } = await supabase.from('programas').update(payload).eq('id', id).select().single();
+        if (error) return { success: false, error: `Error de Supabase: ${error.message}` };
+
+        if (data) {
+          this.programasCache = this.programasCache.map(p => (p.id === id ? { ...p, ...data } : p));
+          this.setStorageItem(STORAGE_KEYS.PROGRAMAS, this.programasCache);
+          return { success: true, programa: data };
+        }
+      } catch (err: any) {
+        return { success: false, error: err?.message };
+      }
+    }
+
     const programas = this.getProgramas();
     const index = programas.findIndex(p => p.id === id);
     if (index === -1) return { success: false, error: 'Programa no encontrado.' };
 
-    if (updates.codigo_ficha) {
-      const cleanFicha = updates.codigo_ficha.trim();
-      if (programas.some(p => p.id !== id && p.codigo_ficha.trim() === cleanFicha)) {
-        return { success: false, error: `La ficha ${cleanFicha} ya está registrada en otro programa.` };
-      }
-    }
-
     programas[index] = { ...programas[index], ...updates };
+    this.programasCache = programas;
     this.setStorageItem(STORAGE_KEYS.PROGRAMAS, programas);
     return { success: true, programa: programas[index] };
   }
 
-  public deletePrograma(id: string): { success: boolean; error?: string } {
-    let programas = this.getProgramas();
-    const horarios = this.getHorarios();
-
-    if (horarios.some(h => h.programa_id === id)) {
-      return { success: false, error: 'No se puede eliminar la ficha porque tiene horarios asignados en la matriz.' };
+  public async deletePrograma(id: string): Promise<{ success: boolean; error?: string }> {
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      try {
+        const { error } = await supabase.from('programas').delete().eq('id', id);
+        if (error) return { success: false, error: `Error de Supabase: ${error.message}` };
+      } catch (err: any) {
+        return { success: false, error: err?.message };
+      }
     }
 
-    programas = programas.filter(p => p.id !== id);
-    this.setStorageItem(STORAGE_KEYS.PROGRAMAS, programas);
+    this.programasCache = this.programasCache.filter(p => p.id !== id);
+    this.setStorageItem(STORAGE_KEYS.PROGRAMAS, this.programasCache);
     return { success: true };
   }
 
   // --- AMBIENTES / LABORATORIOS ---
   public getAmbientes(): Ambiente[] {
-    return this.getStorageItem<Ambiente[]>(STORAGE_KEYS.AMBIENTES, SEED_AMBIENTES);
+    return this.ambientesCache.length > 0
+      ? this.ambientesCache
+      : this.getStorageItem<Ambiente[]>(STORAGE_KEYS.AMBIENTES, SEED_AMBIENTES);
   }
 
   public getAmbienteById(id: string): Ambiente | undefined {
     return this.getAmbientes().find(a => a.id === id);
   }
 
-  public createAmbiente(ambData: Omit<Ambiente, 'id' | 'created_at'>): { success: boolean; ambiente?: Ambiente; error?: string } {
-    const ambientes = this.getAmbientes();
+  public async createAmbiente(ambData: Omit<Ambiente, 'id' | 'created_at'>): Promise<{ success: boolean; ambiente?: Ambiente; error?: string }> {
     const cleanNum = ambData.numero_ambiente.trim();
-
     if (!cleanNum) {
       return { success: false, error: 'El número o identificador del ambiente es obligatorio.' };
     }
 
-    if (ambientes.some(a => a.numero_ambiente.trim().toLowerCase() === cleanNum.toLowerCase() && a.sede.trim().toLowerCase() === ambData.sede.trim().toLowerCase())) {
-      return { success: false, error: `El ambiente "${cleanNum}" ya existe en la sede "${ambData.sede}".` };
-    }
-
+    const newId = generateUUID();
     const newAmb: Ambiente = {
       ...ambData,
-      id: `amb-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`,
+      id: newId,
       numero_ambiente: cleanNum,
       created_at: new Date().toISOString(),
     };
 
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('ambientes')
+          .insert([
+            {
+              id: newAmb.id,
+              numero_ambiente: newAmb.numero_ambiente,
+              nombre_ambiente: newAmb.nombre_ambiente,
+              sede: newAmb.sede,
+              tipo: newAmb.tipo,
+              capacidad: newAmb.capacidad,
+              equipamiento: newAmb.equipamiento || [],
+              activo: newAmb.activo ?? true,
+            },
+          ])
+          .select()
+          .single();
+
+        if (error) return { success: false, error: `Error de Supabase: ${error.message}` };
+
+        if (data) {
+          this.ambientesCache = [...this.ambientesCache, data];
+          this.setStorageItem(STORAGE_KEYS.AMBIENTES, this.ambientesCache);
+          return { success: true, ambiente: data };
+        }
+      } catch (err: any) {
+        return { success: false, error: err?.message };
+      }
+    }
+
+    const ambientes = this.getAmbientes();
     ambientes.push(newAmb);
+    this.ambientesCache = ambientes;
     this.setStorageItem(STORAGE_KEYS.AMBIENTES, ambientes);
     return { success: true, ambiente: newAmb };
   }
 
-  public updateAmbiente(id: string, updates: Partial<Ambiente>): { success: boolean; ambiente?: Ambiente; error?: string } {
+  public async updateAmbiente(id: string, updates: Partial<Ambiente>): Promise<{ success: boolean; ambiente?: Ambiente; error?: string }> {
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      try {
+        const payload: any = { ...updates };
+        delete payload.id;
+        delete payload.created_at;
+
+        const { data, error } = await supabase.from('ambientes').update(payload).eq('id', id).select().single();
+        if (error) return { success: false, error: `Error de Supabase: ${error.message}` };
+
+        if (data) {
+          this.ambientesCache = this.ambientesCache.map(a => (a.id === id ? { ...a, ...data } : a));
+          this.setStorageItem(STORAGE_KEYS.AMBIENTES, this.ambientesCache);
+          return { success: true, ambiente: data };
+        }
+      } catch (err: any) {
+        return { success: false, error: err?.message };
+      }
+    }
+
     const ambientes = this.getAmbientes();
     const index = ambientes.findIndex(a => a.id === id);
     if (index === -1) return { success: false, error: 'Ambiente no encontrado.' };
 
     ambientes[index] = { ...ambientes[index], ...updates };
+    this.ambientesCache = ambientes;
     this.setStorageItem(STORAGE_KEYS.AMBIENTES, ambientes);
     return { success: true, ambiente: ambientes[index] };
   }
 
-  public deleteAmbiente(id: string): { success: boolean; error?: string } {
-    let ambientes = this.getAmbientes();
-    const horarios = this.getHorarios();
-
-    if (horarios.some(h => h.ambiente_id === id)) {
-      return { success: false, error: 'No se puede eliminar el ambiente porque tiene clases asignadas.' };
+  public async deleteAmbiente(id: string): Promise<{ success: boolean; error?: string }> {
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      try {
+        const { error } = await supabase.from('ambientes').delete().eq('id', id);
+        if (error) return { success: false, error: `Error de Supabase: ${error.message}` };
+      } catch (err: any) {
+        return { success: false, error: err?.message };
+      }
     }
 
-    ambientes = ambientes.filter(a => a.id !== id);
-    this.setStorageItem(STORAGE_KEYS.AMBIENTES, ambientes);
+    this.ambientesCache = this.ambientesCache.filter(a => a.id !== id);
+    this.setStorageItem(STORAGE_KEYS.AMBIENTES, this.ambientesCache);
     return { success: true };
   }
 
   // --- HORARIOS & MOTOR OVERLAPS ---
   public getHorarios(): Horario[] {
-    return this.getStorageItem<Horario[]>(STORAGE_KEYS.HORARIOS, SEED_HORARIOS);
+    return this.horariosCache.length > 0
+      ? this.horariosCache
+      : this.getStorageItem<Horario[]>(STORAGE_KEYS.HORARIOS, SEED_HORARIOS);
   }
 
   public getHorarioById(id: string): Horario | undefined {
@@ -311,13 +594,13 @@ class SenaDatabaseService {
   /**
    * Crea un nuevo horario evaluando de forma estricta los cruces con OVERLAPS
    */
-  public createHorario(horarioData: Omit<Horario, 'id' | 'created_at'>): { success: boolean; horario?: Horario; error?: string } {
+  public async createHorario(horarioData: Omit<Horario, 'id' | 'created_at'>): Promise<{ success: boolean; horario?: Horario; error?: string }> {
     const existingHorarios = this.getHorarios();
     const profiles = this.getProfiles();
     const programas = this.getProgramas();
     const ambientes = this.getAmbientes();
 
-    // Ejecutar validación del motor de OVERLAPS
+    // 1. Validación en cliente de OVERLAPS
     const validation = validateHorarioOverlap(
       horarioData,
       existingHorarios,
@@ -334,29 +617,72 @@ class SenaDatabaseService {
       };
     }
 
+    const newId = generateUUID();
     const newHorario: Horario = {
       ...horarioData,
-      id: `hor-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`,
+      id: newId,
       created_at: new Date().toISOString(),
     };
 
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('horarios')
+          .insert([
+            {
+              id: newHorario.id,
+              instructor_id: newHorario.instructor_id,
+              programa_id: newHorario.programa_id,
+              ambiente_id: newHorario.ambiente_id,
+              dia_semana: newHorario.dia_semana,
+              hora_inicio: newHorario.hora_inicio,
+              hora_fin: newHorario.hora_fin,
+              materia_competencia: newHorario.materia_competencia,
+              created_by: newHorario.created_by || null,
+            },
+          ])
+          .select()
+          .single();
+
+        if (error) {
+          return { success: false, error: `Error de Supabase (OVERLAPS Trigger): ${error.message}` };
+        }
+
+        if (data) {
+          this.horariosCache = [...this.horariosCache, data];
+          this.setStorageItem(STORAGE_KEYS.HORARIOS, this.horariosCache);
+
+          // Crear notificación
+          this.createNotification({
+            usuario_id: newHorario.instructor_id,
+            titulo: 'Nueva Asignación de Clase',
+            mensaje: `Se le ha asignado la competencia "${newHorario.materia_competencia}".`,
+            tipo: 'horario_nuevo',
+          });
+
+          return { success: true, horario: data };
+        }
+      } catch (err: any) {
+        return { success: false, error: err?.message };
+      }
+    }
+
     existingHorarios.push(newHorario);
+    this.horariosCache = existingHorarios;
     this.setStorageItem(STORAGE_KEYS.HORARIOS, existingHorarios);
 
-    // Crear notificación para el instructor
-    const prog = this.getProgramaById(newHorario.programa_id);
-    const amb = this.getAmbienteById(newHorario.ambiente_id);
     this.createNotification({
       usuario_id: newHorario.instructor_id,
       titulo: 'Nueva Asignación de Clase',
-      mensaje: `Se le ha asignado la competencia "${newHorario.materia_competencia}" para la Ficha ${prog?.codigo_ficha || ''} en ${amb?.numero_ambiente || ''}.`,
+      mensaje: `Se le ha asignado la competencia "${newHorario.materia_competencia}".`,
       tipo: 'horario_nuevo',
     });
 
     return { success: true, horario: newHorario };
   }
 
-  public updateHorario(id: string, updates: Partial<Horario>): { success: boolean; horario?: Horario; error?: string } {
+  public async updateHorario(id: string, updates: Partial<Horario>): Promise<{ success: boolean; horario?: Horario; error?: string }> {
     const existingHorarios = this.getHorarios();
     const index = existingHorarios.findIndex(h => h.id === id);
     if (index === -1) return { success: false, error: 'Horario no encontrado.' };
@@ -383,26 +709,53 @@ class SenaDatabaseService {
       };
     }
 
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      try {
+        const payload: any = { ...updates };
+        delete payload.id;
+        delete payload.created_at;
+
+        const { data, error } = await supabase.from('horarios').update(payload).eq('id', id).select().single();
+        if (error) return { success: false, error: `Error de Supabase: ${error.message}` };
+
+        if (data) {
+          this.horariosCache = this.horariosCache.map(h => (h.id === id ? { ...h, ...data } : h));
+          this.setStorageItem(STORAGE_KEYS.HORARIOS, this.horariosCache);
+          return { success: true, horario: data };
+        }
+      } catch (err: any) {
+        return { success: false, error: err?.message };
+      }
+    }
+
     existingHorarios[index] = merged;
+    this.horariosCache = existingHorarios;
     this.setStorageItem(STORAGE_KEYS.HORARIOS, existingHorarios);
     return { success: true, horario: existingHorarios[index] };
   }
 
-  public deleteHorario(id: string): { success: boolean; error?: string } {
-    let existingHorarios = this.getHorarios();
-    const target = existingHorarios.find(h => h.id === id);
-    if (!target) return { success: false, error: 'Horario no encontrado.' };
+  public async deleteHorario(id: string): Promise<{ success: boolean; error?: string }> {
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      try {
+        const { error } = await supabase.from('horarios').delete().eq('id', id);
+        if (error) return { success: false, error: `Error de Supabase: ${error.message}` };
+      } catch (err: any) {
+        return { success: false, error: err?.message };
+      }
+    }
 
-    existingHorarios = existingHorarios.filter(h => h.id !== id);
-    this.setStorageItem(STORAGE_KEYS.HORARIOS, existingHorarios);
+    this.horariosCache = this.horariosCache.filter(h => h.id !== id);
+    this.setStorageItem(STORAGE_KEYS.HORARIOS, this.horariosCache);
     return { success: true };
   }
 
   // --- CARGA MASIVA DE HORARIOS CON OVERLAPS ---
-  public bulkInsertHorarios(rows: Array<Omit<Horario, 'id' | 'created_at'>>, skipConflicts: boolean = false): {
+  public async bulkInsertHorarios(rows: Array<Omit<Horario, 'id' | 'created_at'>>, skipConflicts: boolean = false): Promise<{
     insertedCount: number;
     conflicts: Array<{ row: Omit<Horario, 'id' | 'created_at'>; reason: string }>;
-  } {
+  }> {
     let currentHorarios = [...this.getHorarios()];
     const profiles = this.getProfiles();
     const programas = this.getProgramas();
@@ -413,14 +766,13 @@ class SenaDatabaseService {
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
-      const tempId = `bulk-${Date.now()}-${i}`;
+      const tempId = generateUUID();
       const candidate: Horario = {
         ...row,
         id: tempId,
         created_at: new Date().toISOString(),
       };
 
-      // Validar contra la base actual más los que ya se aprobaron en este lote
       const validation = validateHorarioOverlap(
         candidate,
         [...currentHorarios, ...validToInsert],
@@ -444,48 +796,114 @@ class SenaDatabaseService {
       return { insertedCount: 0, conflicts };
     }
 
+    const supabase = getSupabaseClient();
+    if (supabase && validToInsert.length > 0) {
+      try {
+        const payload = validToInsert.map(h => ({
+          id: h.id,
+          instructor_id: h.instructor_id,
+          programa_id: h.programa_id,
+          ambiente_id: h.ambiente_id,
+          dia_semana: h.dia_semana,
+          hora_inicio: h.hora_inicio,
+          hora_fin: h.hora_fin,
+          materia_competencia: h.materia_competencia,
+          created_by: h.created_by || null,
+        }));
+
+        const { data, error } = await supabase.from('horarios').insert(payload).select();
+        if (!error && data) {
+          this.horariosCache = [...this.horariosCache, ...data];
+          this.setStorageItem(STORAGE_KEYS.HORARIOS, this.horariosCache);
+          return { insertedCount: data.length, conflicts };
+        }
+      } catch (err) {
+        console.error('Supabase bulk insert error:', err);
+      }
+    }
+
     if (validToInsert.length > 0) {
-      currentHorarios = [...currentHorarios, ...validToInsert];
-      this.setStorageItem(STORAGE_KEYS.HORARIOS, currentHorarios);
+      this.horariosCache = [...this.horariosCache, ...validToInsert];
+      this.setStorageItem(STORAGE_KEYS.HORARIOS, this.horariosCache);
     }
 
     return { insertedCount: validToInsert.length, conflicts };
   }
 
-  // Alias para compatibilidad
-  public batchInsertHorarios(rows: Array<Omit<Horario, 'id' | 'created_at'>>, skipConflicts: boolean = false) {
+  public async batchInsertHorarios(rows: Array<Omit<Horario, 'id' | 'created_at'>>, skipConflicts: boolean = false) {
     return this.bulkInsertHorarios(rows, skipConflicts);
   }
 
   // --- NOTIFICACIONES ---
   public getNotificaciones(usuarioId?: string): Notificacion[] {
-    const list = this.getStorageItem<Notificacion[]>(STORAGE_KEYS.NOTIFICACIONES, SEED_NOTIFICACIONES);
+    const list = this.notificacionesCache.length > 0
+      ? this.notificacionesCache
+      : this.getStorageItem<Notificacion[]>(STORAGE_KEYS.NOTIFICACIONES, SEED_NOTIFICACIONES);
     if (!usuarioId) return list;
     return list.filter(n => n.usuario_id === usuarioId || n.usuario_id === 'all');
   }
 
-  public createNotification(data: Omit<Notificacion, 'id' | 'created_at' | 'leido'>): void {
-    const list = this.getNotificaciones();
+  public async createNotification(data: Omit<Notificacion, 'id' | 'created_at' | 'leido'>): Promise<void> {
+    const newId = generateUUID();
     const newNotif: Notificacion = {
       ...data,
-      id: `notif-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`,
+      id: newId,
       leido: false,
       created_at: new Date().toISOString(),
     };
+
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      try {
+        await supabase.from('notificaciones').insert([
+          {
+            id: newNotif.id,
+            usuario_id: newNotif.usuario_id,
+            titulo: newNotif.titulo,
+            mensaje: newNotif.mensaje,
+            tipo: newNotif.tipo || 'general',
+            leido: false,
+          },
+        ]);
+      } catch (err) {
+        console.warn('Supabase notif error:', err);
+      }
+    }
+
+    const list = this.getNotificaciones();
     list.unshift(newNotif);
-    this.setStorageItem(STORAGE_KEYS.NOTIFICACIONES, list.slice(0, 50));
+    this.notificacionesCache = list.slice(0, 50);
+    this.setStorageItem(STORAGE_KEYS.NOTIFICACIONES, this.notificacionesCache);
   }
 
-  public markNotificationAsRead(id: string): void {
+  public async markNotificationAsRead(id: string): Promise<void> {
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      try {
+        await supabase.from('notificaciones').update({ leido: true }).eq('id', id);
+      } catch (err) {
+        console.warn('Supabase mark read error:', err);
+      }
+    }
+
     const list = this.getNotificaciones();
-    const updated = list.map(n => (n.id === id ? { ...n, leido: true } : n));
-    this.setStorageItem(STORAGE_KEYS.NOTIFICACIONES, updated);
+    this.notificacionesCache = list.map(n => (n.id === id ? { ...n, leido: true } : n));
+    this.setStorageItem(STORAGE_KEYS.NOTIFICACIONES, this.notificacionesCache);
   }
 
-  public markAllNotificationsAsRead(usuarioId: string): void {
+  public async markAllNotificationsAsRead(usuarioId: string): Promise<void> {
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      try {
+        await supabase.from('notificaciones').update({ leido: true }).eq('usuario_id', usuarioId);
+      } catch (err) {
+        console.warn('Supabase mark all error:', err);
+      }
+    }
+
     const list = this.getNotificaciones();
-    const updated = list.map(n => (n.usuario_id === usuarioId || n.usuario_id === 'all' ? { ...n, leido: true } : n));
-    this.setStorageItem(STORAGE_KEYS.NOTIFICACIONES, updated);
+    this.notificacionesCache = list.map(n => (n.usuario_id === usuarioId || n.usuario_id === 'all' ? { ...n, leido: true } : n));
+    this.setStorageItem(STORAGE_KEYS.NOTIFICACIONES, this.notificacionesCache);
   }
 
   // --- SESIÓN ACTUAL ---

@@ -88,7 +88,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
     setShowAddModal(true);
   };
 
-  const handleSaveUser = (e: React.FormEvent) => {
+  const handleSaveUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
 
@@ -99,7 +99,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
     }
 
     if (editingUser) {
-      const res = db.updateProfile(editingUser.id, {
+      const res = await db.updateProfile(editingUser.id, {
         cedula: cleanCedula,
         nombre_completo: formNombre.trim(),
         email: formEmail.trim(),
@@ -114,7 +114,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
         return;
       }
     } else {
-      const res = db.createProfile({
+      const res = await db.createProfile({
         cedula: cleanCedula,
         nombre_completo: formNombre.trim(),
         email: formEmail.trim(),
@@ -134,9 +134,9 @@ export const UserManagement: React.FC<UserManagementProps> = ({
     setShowAddModal(false);
   };
 
-  const handleDeleteUser = (user: Profile) => {
+  const handleDeleteUser = async (user: Profile) => {
     if (confirm(`¿Está seguro de eliminar al usuario ${user.nombre_completo} (CC: ${user.cedula})? Esta acción removerá sus horarios vinculados.`)) {
-      db.deleteProfile(user.id);
+      await db.deleteProfile(user.id);
       onRefreshProfiles();
     }
   };
@@ -158,10 +158,10 @@ export const UserManagement: React.FC<UserManagementProps> = ({
     }
   };
 
-  const handleCommitBulkUsers = () => {
+  const handleCommitBulkUsers = async () => {
     if (!bulkResult || !bulkResult.valid) return;
     for (const u of bulkResult.valid) {
-      db.createProfile(u);
+      await db.createProfile(u);
     }
     onRefreshProfiles();
     setShowBulkModal(false);

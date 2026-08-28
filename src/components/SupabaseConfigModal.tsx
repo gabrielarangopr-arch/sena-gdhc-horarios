@@ -16,13 +16,15 @@ import { getSupabaseConfig, saveSupabaseConfig, testSupabaseConnection } from '.
 
 interface SupabaseConfigModalProps {
   onClose: () => void;
+  onConfigSaved?: () => void;
 }
 
-export const SupabaseConfigModal: React.FC<SupabaseConfigModalProps> = ({ onClose }) => {
+export const SupabaseConfigModal: React.FC<SupabaseConfigModalProps> = ({ onClose, onConfigSaved }) => {
   const [activeTab, setActiveTab] = useState<'status' | 'sql'>('status');
   const [url, setUrl] = useState('');
   const [anonKey, setAnonKey] = useState('');
   const [isTesting, setIsTesting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -50,13 +52,24 @@ export const SupabaseConfigModal: React.FC<SupabaseConfigModalProps> = ({ onClos
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    setIsSaving(true);
     saveSupabaseConfig({
       url: url.trim(),
       anonKey: anonKey.trim(),
-      connected: testResult?.success || false,
+      connected: testResult?.success || (!!url.trim() && !!anonKey.trim()),
       lastTested: new Date().toISOString(),
     });
+
+    // Sincronizar datos inmediatamente desde Supabase
+    if (url.trim() && anonKey.trim()) {
+      await db.syncFromSupabase();
+    }
+
+    setIsSaving(false);
+    if (onConfigSaved) {
+      onConfigSaved();
+    }
     onClose();
   };
 
@@ -250,9 +263,11 @@ export const SupabaseConfigModal: React.FC<SupabaseConfigModalProps> = ({ onClos
           {activeTab === 'status' && (
             <button
               onClick={handleSave}
-              className="px-4 py-1.5 text-xs font-bold text-white bg-[#39A900] hover:bg-[#226d00] rounded shadow-xs"
+              disabled={isSaving}
+              className="px-4 py-1.5 text-xs font-bold text-white bg-[#39A900] hover:bg-[#226d00] rounded shadow-xs disabled:opacity-50 flex items-center space-x-1.5"
             >
-              Guardar Configuración
+              {isSaving && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+              <span>{isSaving ? 'Sincronizando...' : 'Guardar y Sincronizar'}</span>
             </button>
           )}
         </div>

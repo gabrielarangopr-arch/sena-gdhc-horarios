@@ -25,7 +25,7 @@ export function getSupabaseConfig(): SupabaseConfig {
       return {
         url: parsed.url || envUrl,
         anonKey: parsed.anonKey || envKey,
-        connected: parsed.connected ?? (!!envUrl && !!envKey),
+        connected: parsed.connected ?? (!!(parsed.url || envUrl) && !!(parsed.anonKey || envKey)),
         lastTested: parsed.lastTested,
       };
     }
@@ -42,6 +42,7 @@ export function getSupabaseConfig(): SupabaseConfig {
 
 export function saveSupabaseConfig(config: SupabaseConfig): void {
   localStorage.setItem(SUPABASE_CONFIG_KEY, JSON.stringify(config));
+  supabaseInstance = null; // Reiniciar instancia para aplicar nuevas credenciales
 }
 
 let supabaseInstance: SupabaseClient | null = null;
@@ -51,7 +52,12 @@ export function getSupabaseClient(): SupabaseClient | null {
   if (config.url && config.anonKey) {
     if (!supabaseInstance) {
       try {
-        supabaseInstance = createClient(config.url, config.anonKey);
+        supabaseInstance = createClient(config.url.trim(), config.anonKey.trim(), {
+          auth: {
+            persistSession: true,
+            autoRefreshToken: true,
+          }
+        });
       } catch (e) {
         console.error('Error creating Supabase client:', e);
         return null;
@@ -64,18 +70,21 @@ export function getSupabaseClient(): SupabaseClient | null {
 
 export async function testSupabaseConnection(url: string, anonKey: string): Promise<{ success: boolean; message: string }> {
   try {
-    if (!url.startsWith('https://') || !url.includes('.supabase.co')) {
+    const cleanUrl = url.trim();
+    const cleanKey = anonKey.trim();
+
+    if (!cleanUrl.startsWith('https://') || !cleanUrl.includes('.supabase.co')) {
       return { success: false, message: 'La URL debe comenzar con https:// y tener el dominio .supabase.co' };
     }
-    if (!anonKey || anonKey.length < 20) {
+    if (!cleanKey || cleanKey.length < 20) {
       return { success: false, message: 'La anon key pública parece inválida o muy corta.' };
     }
 
-    const testClient = createClient(url, anonKey);
+    const testClient = createClient(cleanUrl, cleanKey);
     // Intentar una consulta a la tabla profiles
-    const { error } = await testClient.from('profiles').select('count', { count: 'exact', head: true });
+    const { error } = await testClient.from('profiles').select('id, cedula', { count: 'exact', head: true });
     
-    if (error && error.code !== 'PGRST116' && error.code !== '42P01') {
+    if (error && error.code !== 'PGRST116') {
       return { success: false, message: `Error de conexión: ${error.message} (Código: ${error.code})` };
     }
 

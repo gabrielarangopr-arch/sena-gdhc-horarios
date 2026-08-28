@@ -39,7 +39,12 @@ export default function App() {
     }, 4500);
   };
 
-  const loadData = useCallback(() => {
+  const loadData = useCallback(async () => {
+    // Intentar sincronizar con Supabase si está disponible
+    if (db.isSupabaseConnected()) {
+      await db.syncFromSupabase();
+    }
+
     const profs = db.getProfiles();
     const progs = db.getProgramas();
     const ambs = db.getAmbientes();
@@ -97,16 +102,16 @@ export default function App() {
   };
 
   // Notificaciones: Marcar como leída con persistencia sincronizada
-  const handleMarkNotificationRead = (id: string) => {
-    db.markNotificationAsRead(id);
+  const handleMarkNotificationRead = async (id: string) => {
+    await db.markNotificationAsRead(id);
     if (currentUser) {
       setNotificaciones(db.getNotificaciones(currentUser.id));
     }
   };
 
-  const handleMarkAllNotificationsRead = () => {
+  const handleMarkAllNotificationsRead = async () => {
     if (currentUser) {
-      db.markAllNotificationsAsRead(currentUser.id);
+      await db.markAllNotificationsAsRead(currentUser.id);
       setNotificaciones(db.getNotificaciones(currentUser.id));
       showToast('Todas las notificaciones fueron marcadas como leídas.', 'success');
     }
@@ -123,47 +128,53 @@ export default function App() {
 
   // Asignar Horario Manual
   const handleCreateHorario = async (horarioData: Omit<Horario, 'id' | 'created_at'>): Promise<boolean> => {
-    const result = db.createHorario(horarioData);
+    const result = await db.createHorario(horarioData);
     if (!result.success) {
       showToast(result.error || 'Error al guardar el horario.', 'error');
       return false;
     }
 
-    loadData();
+    await loadData();
     showToast('Horario asignado exitosamente y notificaciones disparadas.', 'success');
     return true;
   };
 
   // Actualizar Horario
   const handleUpdateHorario = async (id: string, updates: Partial<Horario>): Promise<boolean> => {
-    const result = db.updateHorario(id, updates);
+    const result = await db.updateHorario(id, updates);
     if (!result.success) {
       showToast(result.error || 'Error al actualizar el horario.', 'error');
       return false;
     }
 
-    loadData();
+    await loadData();
     showToast('Horario actualizado y notificaciones enviadas.', 'success');
     return true;
   };
 
   // Eliminar Horario
-  const handleDeleteHorario = (id: string) => {
-    db.deleteHorario(id);
-    loadData();
+  const handleDeleteHorario = async (id: string) => {
+    await db.deleteHorario(id);
+    await loadData();
     showToast('Asignación de horario eliminada.', 'info');
   };
 
   // Inserción de Carga Masiva (Bucle de Decisión Parcial)
-  const handleBatchInsertHorarios = (validHorarios: Array<Omit<Horario, 'id' | 'created_at'>>) => {
-    const res = db.batchInsertHorarios(validHorarios);
-    loadData();
+  const handleBatchInsertHorarios = async (validHorarios: Array<Omit<Horario, 'id' | 'created_at'>>) => {
+    const res = await db.batchInsertHorarios(validHorarios);
+    await loadData();
     showToast(`Carga Masiva Exitosa: Se insertaron ${res.insertedCount} bloques de horario válidos.`, 'success');
   };
 
   // Renderizar Portal de Inicio de Sesión si la sesión está cerrada
   if (!isLoggedIn) {
-    return <LoginView profiles={profiles.length > 0 ? profiles : db.getProfiles()} onLogin={handleLogin} />;
+    return (
+      <LoginView
+        profiles={profiles.length > 0 ? profiles : db.getProfiles()}
+        onLogin={handleLogin}
+        onRefreshData={loadData}
+      />
+    );
   }
 
   if (!currentUser || profiles.length === 0) {
@@ -189,6 +200,7 @@ export default function App() {
         onMarkNotificationRead={handleMarkNotificationRead}
         onMarkAllNotificationsRead={handleMarkAllNotificationsRead}
         onResetData={handleResetData}
+        onRefreshData={loadData}
       />
 
       {/* Floating Alert / Toast */}
@@ -208,20 +220,14 @@ export default function App() {
             ) : toast.type === 'info' ? (
               <ShieldCheck className="w-4 h-4 text-[#39A900] shrink-0" />
             ) : (
-              <CheckCircle2 className="w-4 h-4 text-[#39A900] shrink-0" />
+              <CheckCircle2 className="w-4 h-4 text-white shrink-0" />
             )}
-            <span className="flex-1">{toast.message}</span>
-            <button
-              onClick={() => setToast(null)}
-              className="text-white/80 hover:text-white p-0.5"
-            >
-              ✕
-            </button>
+            <p className="flex-1">{toast.message}</p>
           </div>
         </div>
       )}
 
-      {/* Main Role-Based Content View Area */}
+      {/* Main Workspace based on Active Role */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {currentUser.rol === 'admin' && (
           <AdminDashboard
@@ -241,37 +247,35 @@ export default function App() {
         {currentUser.rol === 'instructor' && (
           <InstructorView
             instructor={currentUser}
-            horarios={horarios}
-            programas={programas}
-            ambientes={ambientes}
-            profiles={profiles}
+            allProfiles={profiles}
+            allProgramas={programas}
+            allAmbientes={ambientes}
+            allHorarios={horarios}
+            onRefreshData={loadData}
           />
         )}
 
         {currentUser.rol === 'aprendiz' && (
           <AprendizView
             aprendiz={currentUser}
-            horarios={horarios}
-            programas={programas}
-            ambientes={ambientes}
-            profiles={profiles}
+            allProfiles={profiles}
+            allProgramas={programas}
+            allAmbientes={ambientes}
+            allHorarios={horarios}
           />
         )}
       </main>
 
       {/* Institutional Footer */}
-      <footer className="bg-white border-t border-[#E0E0E0] py-4 mt-8 text-center text-xs text-gray-500 no-print">
-        <div className="max-w-7xl mx-auto px-4 flex flex-wrap items-center justify-between gap-2">
+      <footer className="bg-white border-t border-[#E0E0E0] py-4 text-center text-xs text-gray-500 mt-auto no-print">
+        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
           <div className="flex items-center space-x-2">
-            <span className="font-bold text-[#00324D]">SENA GDHC v2.0</span>
-            <span>—</span>
-            <span>Gestión de Horarios y Disponibilidad de Centros</span>
+            <span className="w-2 h-2 rounded-full bg-[#39A900]"></span>
+            <span>Servicio Nacional de Aprendizaje — SENA • Sistema GDHC v2.0</span>
           </div>
-          <div className="flex items-center space-x-3 text-[11px] text-gray-400">
-            <span>Servicio Nacional de Aprendizaje</span>
-            <span>•</span>
-            <span>Motor OVERLAPS & Supabase Relational</span>
-          </div>
+          <p className="text-gray-400">
+            TRD v2.0 Production-Ready • PostgreSQL Supabase & Motor de Intervalos OVERLAPS
+          </p>
         </div>
       </footer>
     </div>

@@ -6,19 +6,26 @@ import {
   Lock, 
   User, 
   ArrowRight, 
-  AlertCircle
+  AlertCircle,
+  Database
 } from 'lucide-react';
 import { Profile } from '../types';
+import { db } from '../services/db';
+import { SupabaseConfigModal } from './SupabaseConfigModal';
 
 interface LoginViewProps {
   profiles: Profile[];
   onLogin: (user: Profile) => void;
+  onRefreshData?: () => void;
 }
 
-export const LoginView: React.FC<LoginViewProps> = ({ profiles, onLogin }) => {
+export const LoginView: React.FC<LoginViewProps> = ({ profiles, onLogin, onRefreshData }) => {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [showDbModal, setShowDbModal] = useState(false);
+
+  const isConnected = db.isSupabaseConnected();
 
   const handleManualLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,8 +37,9 @@ export const LoginView: React.FC<LoginViewProps> = ({ profiles, onLogin }) => {
       return;
     }
 
-    // Buscar por cédula o correo
-    const found = profiles.find(
+    // Buscar en profiles pasados o en la base de datos
+    const activeProfiles = profiles.length > 0 ? profiles : db.getProfiles();
+    const found = activeProfiles.find(
       p => p.cedula.trim() === cleanInput || p.email.trim().toLowerCase() === cleanInput
     );
 
@@ -63,9 +71,19 @@ export const LoginView: React.FC<LoginViewProps> = ({ profiles, onLogin }) => {
             </div>
           </div>
 
-          <div className="hidden sm:flex items-center space-x-2 bg-[#002236] px-3 py-1.5 rounded-full border border-gray-700 text-xs">
-            <span className="w-2 h-2 rounded-full bg-[#39A900] animate-pulse"></span>
-            <span className="text-gray-300">Motor OVERLAPS & PostgreSQL Supabase</span>
+          <div className="flex items-center space-x-3">
+            <button
+              onClick={() => setShowDbModal(true)}
+              className={`flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-semibold cursor-pointer transition-all ${
+                isConnected
+                  ? 'bg-[#39A900]/20 text-[#a2f779] border border-[#39A900]/40'
+                  : 'bg-white/10 text-gray-200 hover:bg-white/20 border border-white/20'
+              }`}
+              title="Configurar conexión con Supabase PostgreSQL"
+            >
+              <Database className="w-3.5 h-3.5" />
+              <span>{isConnected ? 'Supabase Conectado' : 'Configurar Supabase'}</span>
+            </button>
           </div>
         </div>
       </header>
@@ -73,10 +91,9 @@ export const LoginView: React.FC<LoginViewProps> = ({ profiles, onLogin }) => {
       {/* Main Login Card Container */}
       <main className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
         <div className="max-w-4xl w-full grid grid-cols-1 md:grid-cols-12 bg-white rounded-lg shadow-xl border border-[#E0E0E0] overflow-hidden">
-          
-          {/* Left Column: Institutional Info */}
-          <div className="md:col-span-5 bg-gradient-to-br from-[#00324D] to-[#001D2D] text-white p-6 sm:p-8 flex flex-col justify-between relative overflow-hidden">
-            <div className="relative z-10 space-y-4">
+          {/* Left Column: Official Branding & Context */}
+          <div className="md:col-span-5 bg-gradient-to-br from-[#00324D] to-[#001e30] p-6 sm:p-8 text-white flex flex-col justify-between relative overflow-hidden">
+            <div className="space-y-4 relative z-10">
               <div className="inline-flex items-center space-x-1.5 px-2.5 py-1 bg-[#39A900]/20 border border-[#39A900]/40 rounded-full text-[#A5D6A7] text-xs font-semibold">
                 <Shield className="w-3.5 h-3.5" />
                 <span>Portal de Autenticación GDHC</span>
@@ -162,7 +179,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ profiles, onLogin }) => {
                       type="text"
                       value={identifier}
                       onChange={e => setIdentifier(e.target.value)}
-                      placeholder="Ej: 1020405060 o gabrielarangopr@gmail.com"
+                      placeholder="Ej: 1020304050 o usuario@sena.edu.co"
                       className="w-full pl-9 pr-3 py-2.5 text-xs border border-gray-300 rounded focus:ring-2 focus:ring-[#39A900] focus:border-[#39A900] focus:outline-hidden"
                       autoFocus
                     />
@@ -210,6 +227,16 @@ export const LoginView: React.FC<LoginViewProps> = ({ profiles, onLogin }) => {
           <span>Gestión de Horarios y Disponibilidad de Centros v2.0</span>
         </div>
       </footer>
+
+      {/* Supabase Config Modal */}
+      {showDbModal && (
+        <SupabaseConfigModal
+          onClose={() => setShowDbModal(false)}
+          onConfigSaved={() => {
+            if (onRefreshData) onRefreshData();
+          }}
+        />
+      )}
     </div>
   );
 };

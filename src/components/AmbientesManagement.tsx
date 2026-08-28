@@ -46,7 +46,7 @@ export const AmbientesManagement: React.FC<AmbientesManagementProps> = ({
     setShowModal(true);
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
 
@@ -61,7 +61,7 @@ export const AmbientesManagement: React.FC<AmbientesManagementProps> = ({
       .filter(item => item.length > 0);
 
     if (editingAmb) {
-      const res = db.updateAmbiente(editingAmb.id, {
+      const res = await db.updateAmbiente(editingAmb.id, {
         numero_ambiente: numeroAmbiente.trim(),
         nombre_ambiente: nombreAmbiente.trim(),
         sede: sede.trim(),
@@ -74,7 +74,7 @@ export const AmbientesManagement: React.FC<AmbientesManagementProps> = ({
         return;
       }
     } else {
-      const res = db.createAmbiente({
+      const res = await db.createAmbiente({
         numero_ambiente: numeroAmbiente.trim(),
         nombre_ambiente: nombreAmbiente.trim(),
         sede: sede.trim(),
@@ -93,9 +93,9 @@ export const AmbientesManagement: React.FC<AmbientesManagementProps> = ({
     setShowModal(false);
   };
 
-  const handleDelete = (amb: Ambiente) => {
+  const handleDelete = async (amb: Ambiente) => {
     if (confirm(`¿Eliminar el ambiente ${amb.numero_ambiente} (${amb.nombre_ambiente})?`)) {
-      db.deleteAmbiente(amb.id);
+      await db.deleteAmbiente(amb.id);
       onRefresh();
     }
   };
