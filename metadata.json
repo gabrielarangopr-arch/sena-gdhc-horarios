@@ -1,0 +1,6 @@
+{
+  "name": "SENA GDHC - Gestión de Horarios",
+  "description": "Sistema de Gestión de Horarios y Disponibilidad de Centros para el SENA con validación de conflictos OVERLAPS, roles de Administrador, Instructor y Aprendiz, carga masiva Excel y notificaciones.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
