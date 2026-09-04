@@ -26,8 +26,8 @@ export const SenaLogo: React.FC<SenaLogoProps> = ({
   const isWhite = variant === 'white';
   const isDark = variant === 'dark';
 
-  const textColor = isWhite ? 'text-white' : 'text-[#00324D]';
-  const subtextColor = isWhite ? 'text-white/80' : 'text-slate-500';
+  const textColor = isWhite ? 'text-white' : 'text-[#00324D] dark:text-white';
+  const subtextColor = isWhite ? 'text-white/80' : 'text-slate-500 dark:text-slate-400';
 
   const imgSizes = {
     sm: 'w-7 h-7',

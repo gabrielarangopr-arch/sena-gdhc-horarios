@@ -8,6 +8,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { db } from './services/db';
 import { Profile, Horario, Programa, Ambiente, Notificacion } from './types';
 import { Header } from './components/Header';
+import { LandingPage } from './components/LandingPage';
 import { LoginView } from './components/LoginView';
 import { AdminDashboard } from './components/AdminDashboard';
 import { InstructorView } from './components/InstructorView';
@@ -27,6 +28,10 @@ export default function App() {
   const [showExcelGuide, setShowExcelGuide] = useState(false);
   const [showUserManual, setShowUserManual] = useState(false);
   const [showTechnicalManual, setShowTechnicalManual] = useState(false);
+  
+  // Estado de navegación antes de iniciar sesión (landing, login, register)
+  const [authView, setAuthView] = useState<'landing' | 'login' | 'register'>('landing');
+
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
     try {
       return sessionStorage.getItem('sena_gdhc_logged_in') === 'true';
@@ -88,7 +93,7 @@ export default function App() {
     showToast(`Sesión iniciada como ${user.nombre_completo} (${user.rol.toUpperCase()})`, 'success');
   };
 
-  // Manejo de cierre de sesión
+  // Manejo de cierre de sesión: retorna al landing principal
   const handleLogout = () => {
     try {
       sessionStorage.removeItem('sena_gdhc_logged_in');
@@ -96,6 +101,7 @@ export default function App() {
       // ignore
     }
     setIsLoggedIn(false);
+    setAuthView('landing');
     showToast('Has cerrado la sesión correctamente.', 'info');
   };
 
@@ -172,30 +178,99 @@ export default function App() {
     showToast(`Carga Masiva Exitosa: Se insertaron ${res.insertedCount} bloques de horario válidos.`, 'success');
   };
 
-  // Renderizar Portal de Inicio de Sesión si la sesión está cerrada
+  // =========================================================================
+  // VISTA PÚBLICA (CUANDO NO SE HA INICIADO SESIÓN)
+  // =========================================================================
   if (!isLoggedIn) {
+    // Si la pantalla activa es el Landing Page (Nuevo Main)
+    if (authView === 'landing') {
+      return (
+        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
+          <LandingPage
+            profiles={profiles.length > 0 ? profiles : db.getProfiles()}
+            programas={programas.length > 0 ? programas : db.getProgramas()}
+            ambientes={ambientes.length > 0 ? ambientes : db.getAmbientes()}
+            horarios={horarios.length > 0 ? horarios : db.getHorarios()}
+            onGoToLogin={() => setAuthView('login')}
+            onGoToRegister={() => setAuthView('register')}
+            onOpenExcelGuide={() => setShowExcelGuide(true)}
+            onOpenUserManual={() => setShowUserManual(true)}
+            onOpenTechnicalManual={() => setShowTechnicalManual(true)}
+          />
+
+          {/* Modales Globales Accesibles desde el Landing */}
+          {showExcelGuide && (
+            <ExcelGuideModal
+              initialTab="horarios"
+              onClose={() => setShowExcelGuide(false)}
+            />
+          )}
+
+          {showUserManual && (
+            <UserManualModal
+              onClose={() => setShowUserManual(false)}
+            />
+          )}
+
+          {showTechnicalManual && (
+            <TechnicalManualModal
+              onClose={() => setShowTechnicalManual(false)}
+            />
+          )}
+        </div>
+      );
+    }
+
+    // Si la pantalla activa es el Inicio de Sesión o Registro
     return (
-      <LoginView
-        profiles={profiles.length > 0 ? profiles : db.getProfiles()}
-        onLogin={handleLogin}
-        onRefreshData={loadData}
-      />
+      <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
+        <LoginView
+          profiles={profiles.length > 0 ? profiles : db.getProfiles()}
+          onLogin={handleLogin}
+          onRefreshData={loadData}
+          onBackToLanding={() => setAuthView('landing')}
+          initialTab={authView === 'register' ? 'register' : 'login'}
+        />
+
+        {/* Modales Globales */}
+        {showExcelGuide && (
+          <ExcelGuideModal
+            initialTab="horarios"
+            onClose={() => setShowExcelGuide(false)}
+          />
+        )}
+
+        {showUserManual && (
+          <UserManualModal
+            onClose={() => setShowUserManual(false)}
+          />
+        )}
+
+        {showTechnicalManual && (
+          <TechnicalManualModal
+            onClose={() => setShowTechnicalManual(false)}
+          />
+        )}
+      </div>
     );
   }
 
+  // =========================================================================
+  // VISTA AUTENTICADA (USUARIO LOGUEADO)
+  // =========================================================================
   if (!currentUser || profiles.length === 0) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F5F5F5]">
-        <div className="text-center p-6 bg-white rounded-md shadow-xs border border-[#E0E0E0]">
+      <div className="min-h-screen flex items-center justify-center bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
+        <div className="text-center p-6 bg-white dark:bg-slate-900 rounded-2xl shadow-xs border border-slate-200 dark:border-slate-800">
           <RefreshCw className="w-8 h-8 animate-spin text-[#39A900] mx-auto mb-2" />
-          <p className="text-sm font-bold text-[#00324D]">Iniciando GDHC SENA...</p>
+          <p className="text-sm font-bold text-[#00324D] dark:text-slate-200">Iniciando GDHC SENA...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F5F5] text-[#212121] flex flex-col font-sans">
+    <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
       {/* Institutional Header */}
       <Header
         currentUser={currentUser}
@@ -216,7 +291,7 @@ export default function App() {
       {toast && (
         <div className="fixed bottom-4 right-4 z-50 animate-in slide-in-from-bottom-5 fade-in">
           <div
-            className={`p-3.5 rounded-md shadow-lg border text-xs font-semibold flex items-center space-x-2.5 max-w-md ${
+            className={`p-3.5 rounded-xl shadow-lg border text-xs font-semibold flex items-center space-x-2.5 max-w-md ${
               toast.type === 'error'
                 ? 'bg-[#D32F2F] text-white border-[#b71c1c]'
                 : toast.type === 'info'
@@ -276,13 +351,13 @@ export default function App() {
       </main>
 
       {/* Institutional Footer */}
-      <footer className="bg-white border-t border-[#E0E0E0] py-4 text-center text-xs text-gray-500 mt-auto no-print">
+      <footer className="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 py-4 text-center text-xs text-slate-500 dark:text-slate-400 mt-auto no-print transition-colors">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
           <div className="flex items-center space-x-2">
             <span className="w-2 h-2 rounded-full bg-[#39A900]"></span>
             <span>Servicio Nacional de Aprendizaje — SENA • Sistema GDHC v2.0</span>
           </div>
-          <p className="text-gray-400">
+          <p className="text-slate-400 dark:text-slate-500">
             TRD v2.0 Production-Ready • PostgreSQL Supabase & Motor de Intervalos OVERLAPS
           </p>
         </div>

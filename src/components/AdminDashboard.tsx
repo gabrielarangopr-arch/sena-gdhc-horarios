@@ -94,17 +94,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         <div className="lg:col-span-8 xl:col-span-9 space-y-4">
           
           {/* Barra Superior con Pestañas Estilo Moderno (Pill tabs) y Acciones */}
-          <div className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-wrap items-center justify-between gap-3 no-print">
-            <div className="flex flex-wrap items-center gap-1.5 p-1 bg-slate-100 rounded-xl">
+          <div className="bg-white dark:bg-slate-900 p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex flex-wrap items-center justify-between gap-3 no-print transition-colors">
+            <div className="flex flex-wrap items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl">
               <button
                 onClick={() => setActiveTab('matrix')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
                   activeTab === 'matrix'
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
-                <Calendar className="w-3.5 h-3.5 text-emerald-600" />
+                <Calendar className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                 <span>Matriz de Horarios</span>
               </button>
 
@@ -112,11 +112,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 onClick={() => setActiveTab('users')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
                   activeTab === 'users'
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
-                <Users className="w-3.5 h-3.5 text-blue-600" />
+                <Users className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                 <span>Usuarios ({profiles.length})</span>
               </button>
 
@@ -124,11 +124,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 onClick={() => setActiveTab('programas')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
                   activeTab === 'programas'
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
-                <BookOpen className="w-3.5 h-3.5 text-indigo-600" />
+                <BookOpen className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                 <span>Fichas ({programas.length})</span>
               </button>
 
@@ -136,11 +136,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 onClick={() => setActiveTab('ambientes')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
                   activeTab === 'ambientes'
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
-                <MapPin className="w-3.5 h-3.5 text-teal-600" />
+                <MapPin className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
                 <span>Ambientes ({ambientes.length})</span>
               </button>
             </div>
@@ -150,10 +150,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <button
                 onClick={() => setShowBulkUploadModal(true)}
                 id="btn-admin-bulk-excel"
-                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
+                className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer border border-slate-200/60 dark:border-slate-700"
                 title="Carga masiva de horarios desde archivo Excel"
               >
-                <UploadCloud className="w-4 h-4 text-slate-500" />
+                <UploadCloud className="w-4 h-4 text-slate-500 dark:text-slate-400" />
                 <span className="hidden sm:inline">Cargar Excel</span>
               </button>
 
@@ -210,118 +210,118 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         <div className="lg:col-span-4 xl:col-span-3 space-y-4 no-print">
           
           {/* Tarjeta de Integridad de Horarios (OVERLAPS) */}
-          <div className="bg-gradient-to-br from-emerald-50 to-teal-50/50 p-4 rounded-2xl border border-emerald-200/80 shadow-2xs">
+          <div className="bg-gradient-to-br from-emerald-50 to-teal-50/50 dark:from-emerald-950/40 dark:to-teal-950/30 p-4 rounded-2xl border border-emerald-200/80 dark:border-emerald-800/60 shadow-2xs">
             <div className="flex items-center justify-between">
               <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs">
                 <ShieldCheck className="w-5 h-5" />
               </div>
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800">
-                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60">
+                <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                 100% Verificado
               </span>
             </div>
             <div className="mt-3">
-              <div className="text-lg font-bold text-slate-800">0 Cruces Detectados</div>
-              <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
+              <div className="text-lg font-bold text-slate-800 dark:text-white">0 Cruces Detectados</div>
+              <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5 leading-relaxed">
                 El motor de validación relacional garantiza cero solapamientos entre instructores y ambientes.
               </p>
             </div>
           </div>
 
           {/* Tarjetas de Métricas Institucionales (Forma suave y moderna) */}
-          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs space-y-3.5">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+          <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs space-y-3.5 transition-colors">
+            <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
               Resumen del Centro
             </h3>
 
             {/* Métrica 1: Instructores */}
-            <div className="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 transition-colors">
+            <div className="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-emerald-100/80 text-[#39A900] flex items-center justify-center">
+                <div className="w-8 h-8 rounded-lg bg-emerald-100/80 dark:bg-emerald-950/60 text-[#39A900] flex items-center justify-center">
                   <Briefcase className="w-4 h-4" />
                 </div>
                 <div>
-                  <div className="text-xs font-semibold text-slate-800">Instructores</div>
-                  <div className="text-[11px] text-slate-500">De planta y contrato</div>
+                  <div className="text-xs font-semibold text-slate-800 dark:text-slate-200">Instructores</div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">De planta y contrato</div>
                 </div>
               </div>
-              <span className="text-base font-bold text-slate-900">{instructors.length}</span>
+              <span className="text-base font-bold text-slate-900 dark:text-white">{instructors.length}</span>
             </div>
 
             {/* Métrica 2: Aprendices (Con estado de registro) */}
-            <div className="p-2.5 rounded-xl bg-slate-50/80 border border-slate-100">
+            <div className="p-2.5 rounded-xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/80">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-teal-100 text-teal-700 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-lg bg-teal-100 dark:bg-teal-950/60 text-teal-700 dark:text-teal-400 flex items-center justify-center">
                     <GraduationCap className="w-4 h-4" />
                   </div>
                   <div>
-                    <div className="text-xs font-semibold text-slate-800">Aprendices</div>
-                    <div className="text-[11px] text-slate-500">En base de datos</div>
+                    <div className="text-xs font-semibold text-slate-800 dark:text-slate-200">Aprendices</div>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400">En base de datos</div>
                   </div>
                 </div>
-                <span className="text-base font-bold text-slate-900">{aprendices.length}</span>
+                <span className="text-base font-bold text-slate-900 dark:text-white">{aprendices.length}</span>
               </div>
               
               {/* Desglose de registro */}
-              <div className="mt-2.5 pt-2 border-t border-slate-200/60 grid grid-cols-2 gap-2 text-[11px]">
-                <div className="flex items-center justify-between bg-white px-2 py-1 rounded-lg border border-slate-200/60">
-                  <span className="text-emerald-700 font-medium">Activos:</span>
-                  <span className="font-bold text-slate-800">{aprendicesRegistrados.length}</span>
+              <div className="mt-2.5 pt-2 border-t border-slate-200/60 dark:border-slate-700/60 grid grid-cols-2 gap-2 text-[11px]">
+                <div className="flex items-center justify-between bg-white dark:bg-slate-800 px-2 py-1 rounded-lg border border-slate-200/60 dark:border-slate-700">
+                  <span className="text-emerald-700 dark:text-emerald-400 font-medium">Activos:</span>
+                  <span className="font-bold text-slate-800 dark:text-white">{aprendicesRegistrados.length}</span>
                 </div>
-                <div className="flex items-center justify-between bg-white px-2 py-1 rounded-lg border border-slate-200/60">
-                  <span className="text-amber-700 font-medium">Pendientes:</span>
-                  <span className="font-bold text-slate-800">{aprendicesPendientes.length}</span>
+                <div className="flex items-center justify-between bg-white dark:bg-slate-800 px-2 py-1 rounded-lg border border-slate-200/60 dark:border-slate-700">
+                  <span className="text-amber-700 dark:text-amber-400 font-medium">Pendientes:</span>
+                  <span className="font-bold text-slate-800 dark:text-white">{aprendicesPendientes.length}</span>
                 </div>
               </div>
             </div>
 
             {/* Métrica 3: Fichas de Formación */}
-            <div className="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 transition-colors">
+            <div className="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-blue-100/80 text-blue-700 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-lg bg-blue-100/80 dark:bg-blue-950/60 text-blue-700 dark:text-blue-400 flex items-center justify-center">
                   <BookOpen className="w-4 h-4" />
                 </div>
                 <div>
-                  <div className="text-xs font-semibold text-slate-800">Fichas Activas</div>
-                  <div className="text-[11px] text-slate-500">Programas técnicos y tecnólogos</div>
+                  <div className="text-xs font-semibold text-slate-800 dark:text-slate-200">Fichas Activas</div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">Programas técnicos y tecnólogos</div>
                 </div>
               </div>
-              <span className="text-base font-bold text-slate-900">{programas.length}</span>
+              <span className="text-base font-bold text-slate-900 dark:text-white">{programas.length}</span>
             </div>
 
             {/* Métrica 4: Ambientes Disponibles */}
-            <div className="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 transition-colors">
+            <div className="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-indigo-100/80 text-indigo-700 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-lg bg-indigo-100/80 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-400 flex items-center justify-center">
                   <MapPin className="w-4 h-4" />
                 </div>
                 <div>
-                  <div className="text-xs font-semibold text-slate-800">Ambientes</div>
-                  <div className="text-[11px] text-slate-500">Cómputo, aulas y laboratorios</div>
+                  <div className="text-xs font-semibold text-slate-800 dark:text-slate-200">Ambientes</div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">Cómputo, aulas y laboratorios</div>
                 </div>
               </div>
-              <span className="text-base font-bold text-slate-900">{ambientes.length}</span>
+              <span className="text-base font-bold text-slate-900 dark:text-white">{ambientes.length}</span>
             </div>
 
             {/* Métrica 5: Bloques de Horario Programados */}
-            <div className="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 transition-colors">
+            <div className="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-violet-100/80 text-violet-700 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-lg bg-violet-100/80 dark:bg-violet-950/60 text-violet-700 dark:text-violet-400 flex items-center justify-center">
                   <Calendar className="w-4 h-4" />
                 </div>
                 <div>
-                  <div className="text-xs font-semibold text-slate-800">Bloques de Horario</div>
-                  <div className="text-[11px] text-slate-500">Semana Lunes a Sábado</div>
+                  <div className="text-xs font-semibold text-slate-800 dark:text-slate-200">Bloques de Horario</div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">Semana Lunes a Sábado</div>
                 </div>
               </div>
-              <span className="text-base font-bold text-slate-900">{horarios.length}</span>
+              <span className="text-base font-bold text-slate-900 dark:text-white">{horarios.length}</span>
             </div>
 
           </div>
 
           {/* Tarjeta de Acceso Rápido a Instructores y Aprendices */}
-          <div className="bg-slate-900 text-white p-4 rounded-2xl shadow-sm">
+          <div className="bg-slate-900 dark:bg-slate-950 text-white p-4 rounded-2xl shadow-sm border border-slate-800">
             <div className="flex items-center gap-2 text-xs font-semibold text-slate-300">
               <Sparkles className="w-4 h-4 text-[#39A900]" />
               <span>Gestión de Aprendices</span>
