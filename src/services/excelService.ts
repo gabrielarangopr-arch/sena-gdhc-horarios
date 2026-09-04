@@ -396,6 +396,7 @@ export class ExcelService {
         especialidad: rol === 'instructor' ? especialidad : undefined,
         telefono,
         ficha_id: fichaId,
+        registrado: false,
       });
     }
 

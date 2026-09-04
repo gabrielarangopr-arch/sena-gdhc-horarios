@@ -12,12 +12,14 @@ import {
   GraduationCap, 
   AlertCircle,
   CheckCircle2,
+  Clock,
   X,
   FileSpreadsheet
 } from 'lucide-react';
 import { Profile, Programa, UserRole } from '../types';
 import { db } from '../services/db';
 import { excelService } from '../services/excelService';
+import { ExcelGuideModal } from './ExcelGuideModal';
 
 interface UserManagementProps {
   profiles: Profile[];
@@ -32,18 +34,21 @@ export const UserManagement: React.FC<UserManagementProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'registered' | 'pending'>('all');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showBulkModal, setShowBulkModal] = useState(false);
+  const [showExcelGuide, setShowExcelGuide] = useState(false);
   const [editingUser, setEditingUser] = useState<Profile | null>(null);
 
   // Form State for Manual Add/Edit
   const [formCedula, setFormCedula] = useState('');
   const [formNombre, setFormNombre] = useState('');
   const [formEmail, setFormEmail] = useState('');
-  const [formRol, setFormRol] = useState<UserRole>('instructor');
+  const [formRol, setFormRol] = useState<UserRole>('aprendiz');
   const [formEspecialidad, setFormEspecialidad] = useState('');
   const [formTelefono, setFormTelefono] = useState('');
   const [formFichaId, setFormFichaId] = useState('');
+  const [formPreRegistrado, setFormPreRegistrado] = useState(true);
   const [formError, setFormError] = useState<string | null>(null);
 
   // Bulk Upload State
@@ -54,6 +59,9 @@ export const UserManagement: React.FC<UserManagementProps> = ({
 
   const filteredProfiles = profiles.filter(p => {
     if (roleFilter !== 'all' && p.rol !== roleFilter) return false;
+    const isActivo = p.rol === 'admin' || !!p.registrado;
+    if (statusFilter === 'registered' && !isActivo) return false;
+    if (statusFilter === 'pending' && isActivo) return false;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       const match = `${p.nombre_completo} ${p.cedula} ${p.email} ${p.especialidad || ''}`.toLowerCase();
@@ -67,10 +75,11 @@ export const UserManagement: React.FC<UserManagementProps> = ({
     setFormCedula('');
     setFormNombre('');
     setFormEmail('');
-    setFormRol('instructor');
+    setFormRol('aprendiz');
     setFormEspecialidad('');
     setFormTelefono('');
     setFormFichaId(programas[0]?.id || '');
+    setFormPreRegistrado(true);
     setFormError(null);
     setShowAddModal(true);
   };
@@ -122,6 +131,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
         especialidad: formRol === 'instructor' ? formEspecialidad.trim() : undefined,
         telefono: formTelefono.trim(),
         ficha_id: formRol === 'aprendiz' ? formFichaId : undefined,
+        registrado: formRol === 'admin' ? true : !formPreRegistrado,
       });
 
       if (!res.success) {
@@ -208,64 +218,96 @@ export const UserManagement: React.FC<UserManagementProps> = ({
       </div>
 
       {/* Filters Bar */}
-      <div className="bg-white p-3 rounded-md border border-[#E0E0E0] flex flex-wrap items-center justify-between gap-3">
+      <div className="bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center space-x-2 flex-1 min-w-[240px]">
-          <Search className="w-4 h-4 text-gray-400" />
+          <Search className="w-4 h-4 text-slate-400" />
           <input
             type="text"
             placeholder="Buscar por cédula, nombre o correo..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className="w-full text-xs p-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-[#39A900] focus:outline-hidden"
+            className="w-full text-xs p-1.5 border border-slate-300 rounded-lg focus:ring-1 focus:ring-[#39A900] focus:outline-hidden"
           />
         </div>
 
-        <div className="flex items-center space-x-1 text-xs">
-          <button
-            onClick={() => setRoleFilter('all')}
-            className={`px-2.5 py-1 rounded font-semibold transition-colors ${
-              roleFilter === 'all' ? 'bg-[#00324D] text-white' : 'text-gray-600 hover:bg-gray-100'
-            }`}
-          >
-            Todos ({profiles.length})
-          </button>
-          <button
-            onClick={() => setRoleFilter('instructor')}
-            className={`px-2.5 py-1 rounded font-semibold transition-colors ${
-              roleFilter === 'instructor' ? 'bg-[#39A900] text-white' : 'text-gray-600 hover:bg-gray-100'
-            }`}
-          >
-            Instructores ({profiles.filter(p => p.rol === 'instructor').length})
-          </button>
-          <button
-            onClick={() => setRoleFilter('aprendiz')}
-            className={`px-2.5 py-1 rounded font-semibold transition-colors ${
-              roleFilter === 'aprendiz' ? 'bg-[#0288D1] text-white' : 'text-gray-600 hover:bg-gray-100'
-            }`}
-          >
-            Aprendices ({profiles.filter(p => p.rol === 'aprendiz').length})
-          </button>
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Role Filter */}
+          <div className="flex items-center space-x-1 text-xs bg-slate-100 p-0.5 rounded-lg">
+            <button
+              onClick={() => setRoleFilter('all')}
+              className={`px-2.5 py-1 rounded-md font-semibold transition-colors ${
+                roleFilter === 'all' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Todos ({profiles.length})
+            </button>
+            <button
+              onClick={() => setRoleFilter('instructor')}
+              className={`px-2.5 py-1 rounded-md font-semibold transition-colors ${
+                roleFilter === 'instructor' ? 'bg-[#39A900] text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Instructores ({profiles.filter(p => p.rol === 'instructor').length})
+            </button>
+            <button
+              onClick={() => setRoleFilter('aprendiz')}
+              className={`px-2.5 py-1 rounded-md font-semibold transition-colors ${
+                roleFilter === 'aprendiz' ? 'bg-[#0288D1] text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Aprendices ({profiles.filter(p => p.rol === 'aprendiz').length})
+            </button>
+          </div>
+
+          {/* Status Filter */}
+          <div className="flex items-center space-x-1 text-xs bg-slate-100 p-0.5 rounded-lg">
+            <button
+              onClick={() => setStatusFilter('all')}
+              className={`px-2 py-1 rounded-md font-medium transition-colors ${
+                statusFilter === 'all' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-900'
+              }`}
+            >
+              Estado: Todos
+            </button>
+            <button
+              onClick={() => setStatusFilter('registered')}
+              className={`px-2 py-1 rounded-md font-medium transition-colors ${
+                statusFilter === 'registered' ? 'bg-emerald-600 text-white shadow-2xs' : 'text-slate-500 hover:text-slate-900'
+              }`}
+            >
+              Activos
+            </button>
+            <button
+              onClick={() => setStatusFilter('pending')}
+              className={`px-2 py-1 rounded-md font-medium transition-colors ${
+                statusFilter === 'pending' ? 'bg-amber-600 text-white shadow-2xs' : 'text-slate-500 hover:text-slate-900'
+              }`}
+            >
+              Pendientes
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Users Table */}
-      <div className="bg-white rounded-md border border-[#E0E0E0] shadow-xs overflow-x-auto">
-        <table className="w-full border-collapse text-left text-xs min-w-[750px]">
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-x-auto">
+        <table className="w-full border-collapse text-left text-xs min-w-[780px]">
           <thead>
-            <tr className="bg-[#00324D] text-white">
-              <th className="p-3 font-bold uppercase tracking-wider">Cédula (Única)</th>
-              <th className="p-3 font-bold uppercase tracking-wider">Nombre Completo</th>
-              <th className="p-3 font-bold uppercase tracking-wider">Rol</th>
-              <th className="p-3 font-bold uppercase tracking-wider">Detalle / Especialidad</th>
-              <th className="p-3 font-bold uppercase tracking-wider">Contacto</th>
-              <th className="p-3 font-bold uppercase tracking-wider text-right">Acciones</th>
+            <tr className="bg-slate-900 text-white">
+              <th className="p-3.5 font-bold uppercase tracking-wider">Cédula</th>
+              <th className="p-3.5 font-bold uppercase tracking-wider">Nombre Completo</th>
+              <th className="p-3.5 font-bold uppercase tracking-wider">Rol</th>
+              <th className="p-3.5 font-bold uppercase tracking-wider">Estado Cuenta</th>
+              <th className="p-3.5 font-bold uppercase tracking-wider">Detalle / Ficha</th>
+              <th className="p-3.5 font-bold uppercase tracking-wider">Contacto</th>
+              <th className="p-3.5 font-bold uppercase tracking-wider text-right">Acciones</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-200">
+          <tbody className="divide-y divide-slate-100">
             {filteredProfiles.length === 0 ? (
               <tr>
-                <td colSpan={6} className="p-6 text-center text-gray-400">
-                  No se encontraron usuarios que coincidan con la búsqueda.
+                <td colSpan={7} className="p-8 text-center text-slate-400">
+                  No se encontraron usuarios con los filtros seleccionados.
                 </td>
               </tr>
             ) : (
@@ -273,56 +315,74 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                 const ficha = u.ficha_id ? programas.find(p => p.id === u.ficha_id) : null;
 
                 return (
-                  <tr key={u.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="p-3 font-mono font-bold text-[#00324D] whitespace-nowrap">
+                  <tr key={u.id} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="p-3.5 font-mono font-bold text-slate-900 whitespace-nowrap">
                       {u.cedula}
                     </td>
-                    <td className="p-3 font-medium text-gray-900">
+                    <td className="p-3.5 font-medium text-slate-900">
                       <div>{u.nombre_completo}</div>
-                      <div className="text-[11px] text-gray-400">{u.email}</div>
+                      <div className="text-[11px] text-slate-400">{u.email}</div>
                     </td>
-                    <td className="p-3 whitespace-nowrap">
+                    <td className="p-3.5 whitespace-nowrap">
                       {u.rol === 'admin' ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-[#00324D] text-white">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 text-white">
                           <Shield className="w-3 h-3 mr-1" />
-                          ADMINISTRADOR
+                          ADMIN
                         </span>
                       ) : u.rol === 'instructor' ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-[#e9f1df] text-[#226d00]">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
                           <Briefcase className="w-3 h-3 mr-1" />
                           INSTRUCTOR
                         </span>
                       ) : (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-[#e1f5fe] text-[#0288D1]">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-100 text-sky-800">
                           <GraduationCap className="w-3 h-3 mr-1" />
                           APRENDIZ
                         </span>
                       )}
                     </td>
-                    <td className="p-3 text-gray-600">
+                    <td className="p-3.5 whitespace-nowrap">
+                      {u.rol === 'admin' ? (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-800 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-300">
+                          <CheckCircle2 className="w-3 h-3 text-[#39A900]" />
+                          Activo / Administrador
+                        </span>
+                      ) : u.registrado ? (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                          <CheckCircle2 className="w-3 h-3" />
+                          Registrado
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
+                          <Clock className="w-3 h-3" />
+                          Pendiente activación
+                        </span>
+                      )}
+                    </td>
+                    <td className="p-3.5 text-slate-600">
                       {u.rol === 'instructor' && (
                         <span>{u.especialidad || 'General'}</span>
                       )}
                       {u.rol === 'aprendiz' && (
                         <div>
                           {ficha ? (
-                            <span className="font-semibold text-gray-800">
+                            <span className="font-semibold text-slate-800">
                               Ficha {ficha.codigo_ficha} ({ficha.nombre_programa.substring(0, 20)}...)
                             </span>
                           ) : (
-                            <span className="text-gray-400 italic">Sin ficha asignada</span>
+                            <span className="text-slate-400 italic">Sin ficha asignada</span>
                           )}
                         </div>
                       )}
-                      {u.rol === 'admin' && <span className="text-gray-500">Coordinación GDHC</span>}
+                      {u.rol === 'admin' && <span className="text-slate-500">Coordinación GDHC</span>}
                     </td>
-                    <td className="p-3 text-gray-500 whitespace-nowrap">
+                    <td className="p-3.5 text-slate-500 whitespace-nowrap">
                       {u.telefono || 'Sin teléfono'}
                     </td>
-                    <td className="p-3 text-right space-x-1 whitespace-nowrap">
+                    <td className="p-3.5 text-right space-x-1 whitespace-nowrap">
                       <button
                         onClick={() => openEditModal(u)}
-                        className="p-1 text-gray-600 hover:text-[#00324D] hover:bg-gray-100 rounded transition-colors"
+                        className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
                         title="Editar Usuario"
                       >
                         <Edit3 className="w-4 h-4 inline" />
@@ -330,7 +390,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                       {u.rol !== 'admin' && (
                         <button
                           onClick={() => handleDeleteUser(u)}
-                          className="p-1 text-gray-600 hover:text-[#D32F2F] hover:bg-red-50 rounded transition-colors"
+                          className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
                           title="Eliminar Usuario"
                         >
                           <Trash2 className="w-4 h-4 inline" />
@@ -475,6 +535,27 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                 </div>
               )}
 
+              {!editingUser && formRol !== 'admin' && (
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
+                  <label className="flex items-start gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formPreRegistrado}
+                      onChange={e => setFormPreRegistrado(e.target.checked)}
+                      className="mt-0.5 text-[#39A900] rounded focus:ring-[#39A900]"
+                    />
+                    <div>
+                      <span className="text-xs font-semibold text-slate-800 block">
+                        Pre-registrar usuario (activación manual requerida)
+                      </span>
+                      <span className="text-[11px] text-slate-500 block">
+                        El usuario deberá activar su cuenta y crear su contraseña con su número de documento.
+                      </span>
+                    </div>
+                  </label>
+                </div>
+              )}
+
               <div className="pt-3 border-t border-gray-200 flex justify-end space-x-2">
                 <button
                   type="button"
@@ -513,17 +594,28 @@ export const UserManagement: React.FC<UserManagementProps> = ({
             </div>
 
             <div className="p-5 space-y-4">
-              <div className="flex items-center justify-between p-3 bg-[#f5fcea] border border-[#becbb3] rounded">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 bg-[#f5fcea] border border-[#becbb3] rounded-xl gap-2">
                 <span className="text-xs text-[#226d00]">
-                  Descarga la plantilla con validaciones de Cédula Única y columnas requeridas.
+                  Estructura oficial para carga masiva de aprendices e instructores.
                 </span>
-                <button
-                  onClick={() => excelService.downloadUsuariosTemplate()}
-                  className="flex items-center space-x-1 px-3 py-1 bg-[#39A900] text-white rounded text-xs font-bold"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>Plantilla Usuarios</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowExcelGuide(true)}
+                    className="flex items-center space-x-1 px-3 py-1.5 bg-white border border-emerald-300 text-emerald-800 rounded-lg text-xs font-bold hover:bg-emerald-50 transition-colors cursor-pointer"
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5 text-[#39A900]" />
+                    <span>Ver Guía de Columnas</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => excelService.downloadUsuariosTemplate()}
+                    className="flex items-center space-x-1 px-3 py-1.5 bg-[#39A900] hover:bg-[#226d00] text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Descargar Plantilla</span>
+                  </button>
+                </div>
               </div>
 
               <div className="border-2 border-dashed border-gray-300 rounded p-6 text-center bg-gray-50">
@@ -608,6 +700,14 @@ export const UserManagement: React.FC<UserManagementProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal de Guía de Estructura Excel */}
+      {showExcelGuide && (
+        <ExcelGuideModal
+          initialTab="usuarios"
+          onClose={() => setShowExcelGuide(false)}
+        />
       )}
     </div>
   );

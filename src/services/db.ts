@@ -39,6 +39,7 @@ export const SEED_PROFILES: Profile[] = [
     rol: 'admin',
     especialidad: 'Coordinación Académica GDHC',
     telefono: '3105551234',
+    registrado: true,
     created_at: new Date('2026-01-01T08:00:00Z').toISOString(),
   },
 ];
@@ -111,8 +112,20 @@ class SenaDatabaseService {
       if (pErr) {
         console.warn('Error fetching profiles from Supabase:', pErr);
       } else if (profs) {
-        this.profilesCache = profs;
-        this.setStorageItem(STORAGE_KEYS.PROFILES, profs);
+        // Combinar con la caché local para preservar campos de activación si la tabla en Supabase aún no los tiene
+        const mergedProfiles = profs.map(remote => {
+          const local = this.profilesCache.find(l => l.id === remote.id || l.cedula === remote.cedula);
+          const isAdmin = remote.rol === 'admin' || local?.rol === 'admin';
+          return {
+            ...local,
+            ...remote,
+            registrado: isAdmin ? true : (remote.registrado !== undefined ? remote.registrado : (local?.registrado ?? false)),
+            password: remote.password || local?.password,
+            fecha_registro: remote.fecha_registro || local?.fecha_registro,
+          };
+        });
+        this.profilesCache = mergedProfiles;
+        this.setStorageItem(STORAGE_KEYS.PROFILES, mergedProfiles);
       }
 
       // 2. Programas
@@ -193,9 +206,11 @@ class SenaDatabaseService {
 
   // --- PROFILES / USUARIOS ---
   public getProfiles(): Profile[] {
-    return this.profilesCache.length > 0
+    const list = this.profilesCache.length > 0
       ? this.profilesCache
       : this.getStorageItem<Profile[]>(STORAGE_KEYS.PROFILES, SEED_PROFILES);
+    // Garantizar que cualquier perfil de Administrador siempre tenga registrado: true
+    return list.map(p => (p.rol === 'admin' ? { ...p, registrado: true } : p));
   }
 
   public getProfileById(id: string): Profile | undefined {
@@ -222,11 +237,15 @@ class SenaDatabaseService {
 
     const cleanEmail = profileData.email.trim().toLowerCase();
     const newId = generateUUID();
+    const isRegistrado = profileData.registrado ?? (profileData.rol === 'admin');
     const newProfile: Profile = {
       ...profileData,
       id: newId,
       cedula: cleanCedula,
       email: cleanEmail || `${cleanCedula}@sena.edu.co`,
+      registrado: isRegistrado,
+      password: profileData.password || undefined,
+      fecha_registro: isRegistrado ? (profileData.fecha_registro || new Date().toISOString()) : undefined,
       created_at: new Date().toISOString(),
     };
 
@@ -245,6 +264,9 @@ class SenaDatabaseService {
               especialidad: newProfile.especialidad || null,
               telefono: newProfile.telefono || null,
               ficha_id: newProfile.ficha_id || null,
+              registrado: newProfile.registrado ?? false,
+              password: newProfile.password || null,
+              fecha_registro: newProfile.fecha_registro || null,
             },
           ])
           .select()
@@ -254,6 +276,38 @@ class SenaDatabaseService {
           console.error('Supabase createProfile error:', error);
           if (error.code === '23505') {
             return { success: false, error: `Ya existe un usuario con la cédula o correo ingresado en la base de datos (${error.message}).` };
+          }
+          // Si las columnas nuevas aún no existen en Supabase (falta ejecutar migración), reintentar sin las columnas nuevas
+          if (error.message && (
+            error.message.includes('registrado') || 
+            error.message.includes('password') || 
+            error.message.includes('fecha_registro') ||
+            error.message.includes('schema cache') ||
+            error.message.includes('column')
+          )) {
+            const fallbackInsert = await supabase
+              .from('profiles')
+              .insert([
+                {
+                  id: newProfile.id,
+                  cedula: newProfile.cedula,
+                  nombre_completo: newProfile.nombre_completo,
+                  email: newProfile.email,
+                  rol: newProfile.rol,
+                  especialidad: newProfile.especialidad || null,
+                  telefono: newProfile.telefono || null,
+                  ficha_id: newProfile.ficha_id || null,
+                },
+              ])
+              .select()
+              .single();
+
+            if (!fallbackInsert.error && fallbackInsert.data) {
+              const merged = { ...newProfile, ...fallbackInsert.data };
+              this.profilesCache = [...this.profilesCache, merged];
+              this.setStorageItem(STORAGE_KEYS.PROFILES, this.profilesCache);
+              return { success: true, profile: merged };
+            }
           }
           return { success: false, error: `Error de Supabase: ${error.message}` };
         }
@@ -284,6 +338,19 @@ class SenaDatabaseService {
   }
 
   public async updateProfile(id: string, updates: Partial<Profile>): Promise<{ success: boolean; profile?: Profile; error?: string }> {
+    const existing = this.getProfileById(id);
+    const mergedLocally: Profile = {
+      ...(existing || {
+        id,
+        cedula: '',
+        nombre_completo: '',
+        email: '',
+        rol: 'aprendiz',
+        created_at: new Date().toISOString(),
+      }),
+      ...updates,
+    };
+
     const supabase = getSupabaseClient();
     if (supabase) {
       try {
@@ -291,36 +358,116 @@ class SenaDatabaseService {
         delete payload.id;
         delete payload.created_at;
 
-        const { data, error } = await supabase
-          .from('profiles')
-          .update(payload)
-          .eq('id', id)
-          .select()
-          .single();
+        let lastError: any = null;
+        let updateData: any = null;
+        let currentPayload = { ...payload };
 
-        if (error) {
-          return { success: false, error: `Error de Supabase: ${error.message}` };
+        // Intentar actualizar en Supabase eliminando dinámicamente columnas ausentes en el schema cache
+        for (let attempt = 0; attempt < 5; attempt++) {
+          if (Object.keys(currentPayload).length === 0) {
+            // Ya no quedan columnas por enviar a Supabase (eran campos extendidos locales)
+            lastError = null;
+            break;
+          }
+
+          const res = await supabase
+            .from('profiles')
+            .update(currentPayload)
+            .eq('id', id)
+            .select()
+            .maybeSingle();
+
+          if (!res.error) {
+            updateData = res.data;
+            lastError = null;
+            break;
+          }
+
+          lastError = res.error;
+          const msg = res.error.message || '';
+
+          // Detectar nombre de columna faltante en Supabase (PostgREST schema cache)
+          const match = msg.match(/Could not find the '([^']+)' column/i) ||
+                        msg.match(/column "([^"]+)" of relation/i) ||
+                        msg.match(/column ([^\s]+) does not exist/i);
+
+          if (match && match[1] && match[1] in currentPayload) {
+            delete currentPayload[match[1]];
+            continue;
+          }
+
+          // Si el error menciona campos de activación específicos
+          let removedAny = false;
+          for (const col of ['fecha_registro', 'password', 'registrado']) {
+            if (col in currentPayload && msg.toLowerCase().includes(col)) {
+              delete currentPayload[col];
+              removedAny = true;
+            }
+          }
+          if (removedAny) continue;
+
+          // Si persiste error de columnas desconocidas, reducir a columnas base estándar de profiles
+          const baseCols = ['cedula', 'nombre_completo', 'email', 'rol', 'especialidad', 'telefono', 'ficha_id'];
+          const filtered: any = {};
+          let hadExtra = false;
+          for (const k of Object.keys(currentPayload)) {
+            if (baseCols.includes(k)) {
+              filtered[k] = currentPayload[k];
+            } else {
+              hadExtra = true;
+            }
+          }
+          if (hadExtra) {
+            currentPayload = filtered;
+            continue;
+          }
+
+          // Error no atribuible a columna inexistente
+          break;
         }
 
-        if (data) {
-          this.profilesCache = this.profilesCache.map(p => (p.id === id ? { ...p, ...data } : p));
-          this.setStorageItem(STORAGE_KEYS.PROFILES, this.profilesCache);
-          return { success: true, profile: data };
+        if (lastError) {
+          console.warn('Supabase updateProfile error, persisting locally:', lastError);
+          const isSchemaError = lastError.message && (
+            lastError.message.includes('schema cache') ||
+            lastError.message.includes('column')
+          );
+          if (!isSchemaError) {
+            return { success: false, error: `Error de Supabase: ${lastError.message}` };
+          }
         }
+
+        const finalProfile: Profile = {
+          ...mergedLocally,
+          ...(updateData || {}),
+          registrado: updates.registrado !== undefined ? updates.registrado : mergedLocally.registrado,
+          password: updates.password || mergedLocally.password,
+          fecha_registro: updates.fecha_registro || mergedLocally.fecha_registro,
+        };
+
+        this.profilesCache = this.profilesCache.map(p => (p.id === id ? finalProfile : p));
+        if (!this.profilesCache.some(p => p.id === id)) {
+          this.profilesCache.push(finalProfile);
+        }
+        this.setStorageItem(STORAGE_KEYS.PROFILES, this.profilesCache);
+        return { success: true, profile: finalProfile };
       } catch (err: any) {
-        return { success: false, error: err?.message || 'Error al actualizar en Supabase.' };
+        console.error('Error in updateProfile Supabase:', err);
       }
     }
 
-    // Modo local
+    // Modo local / Fallback
     const profiles = this.getProfiles();
     const index = profiles.findIndex(p => p.id === id);
-    if (index === -1) return { success: false, error: 'Usuario no encontrado.' };
+    if (index === -1) {
+      profiles.push(mergedLocally);
+    } else {
+      profiles[index] = mergedLocally;
+    }
 
-    profiles[index] = { ...profiles[index], ...updates };
     this.profilesCache = profiles;
     this.setStorageItem(STORAGE_KEYS.PROFILES, profiles);
-    return { success: true, profile: profiles[index] };
+    return { success: true, profile: mergedLocally };
   }
 
   public async deleteProfile(id: string): Promise<{ success: boolean; error?: string }> {
@@ -339,6 +486,112 @@ class SenaDatabaseService {
     this.profilesCache = this.profilesCache.filter(p => p.id !== id);
     this.setStorageItem(STORAGE_KEYS.PROFILES, this.profilesCache);
     return { success: true };
+  }
+
+  /**
+   * Busca un usuario por cédula tanto en caché local como en Supabase en tiempo real
+   */
+  public async findProfileByCedula(cedula: string): Promise<Profile | null> {
+    const cleanCedula = cedula.trim();
+    if (!cleanCedula) return null;
+
+    // 1. Revisar caché local primero
+    const local = this.getProfiles().find(p => p.cedula.trim() === cleanCedula);
+    if (local) return local;
+
+    // 2. Si no está en caché, consultar a Supabase en vivo
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('cedula', cleanCedula)
+          .maybeSingle();
+
+        if (!error && data) {
+          const cached = this.getProfiles().find(p => p.id === data.id || p.cedula.trim() === cleanCedula);
+          const isAdmin = data.rol === 'admin' || cached?.rol === 'admin';
+          const merged: Profile = {
+            ...cached,
+            ...data,
+            registrado: isAdmin ? true : (data.registrado !== undefined ? data.registrado : (cached?.registrado ?? false)),
+            password: data.password || cached?.password,
+            fecha_registro: data.fecha_registro || cached?.fecha_registro,
+          };
+          this.profilesCache = [...this.profilesCache.filter(p => p.id !== data.id), merged];
+          this.setStorageItem(STORAGE_KEYS.PROFILES, this.profilesCache);
+          return merged;
+        }
+      } catch (e) {
+        console.warn('Error fetching profile by cedula from Supabase:', e);
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Activa la cuenta de un aprendiz o instructor pre-registrado por el administrador
+   */
+  public async activateProfile(
+    cedula: string,
+    payload: {
+      password: string;
+      email?: string;
+      telefono?: string;
+    }
+  ): Promise<{ success: boolean; profile?: Profile; error?: string }> {
+    const cleanCedula = cedula.trim();
+    const profile = await this.findProfileByCedula(cleanCedula);
+
+    if (!profile) {
+      return {
+        success: false,
+        error: `El número de documento ${cleanCedula} no se encuentra registrado en el sistema.`,
+      };
+    }
+
+    if (profile.registrado) {
+      return {
+        success: false,
+        error: 'Esta cuenta ya ha sido activada previamente. Por favor inicia sesión con tu documento y contraseña.',
+      };
+    }
+
+    const updates: Partial<Profile> = {
+      registrado: true,
+      password: payload.password,
+      fecha_registro: new Date().toISOString(),
+    };
+
+    if (payload.email && payload.email.trim()) {
+      updates.email = payload.email.trim().toLowerCase();
+    }
+    if (payload.telefono && payload.telefono.trim()) {
+      updates.telefono = payload.telefono.trim();
+    }
+
+    const updateRes = await this.updateProfile(profile.id, updates);
+    if (!updateRes.success) {
+      return {
+        success: false,
+        error: updateRes.error || 'No se pudo completar el registro de la cuenta.',
+      };
+    }
+
+    // Disparar notificación institucional de bienvenida
+    await this.createNotification({
+      usuario_id: profile.id,
+      titulo: '¡Bienvenido a GDHC SENA!',
+      mensaje: `Hola ${profile.nombre_completo}, tu cuenta ha sido activada exitosamente. Ya puedes consultar tus horarios y novedades académicas.`,
+      tipo: 'general',
+    });
+
+    return {
+      success: true,
+      profile: updateRes.profile,
+    };
   }
 
   // --- PROGRAMAS / FICHAS ---
@@ -951,8 +1204,16 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     especialidad VARCHAR(250),
     telefono VARCHAR(50),
     ficha_id UUID,
+    registrado BOOLEAN DEFAULT false,
+    password TEXT,
+    fecha_registro TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
+
+-- Migración retrocompatible para bases de datos ya existentes
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS registrado BOOLEAN DEFAULT false;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS password TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS fecha_registro TIMESTAMP WITH TIME ZONE;
 
 CREATE INDEX IF NOT EXISTS idx_profiles_cedula ON public.profiles(cedula);
 CREATE INDEX IF NOT EXISTS idx_profiles_rol ON public.profiles(rol);

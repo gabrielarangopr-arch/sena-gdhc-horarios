@@ -222,30 +222,59 @@ export const SupabaseConfigModal: React.FC<SupabaseConfigModalProps> = ({ onClos
               </div>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-4">
+              {/* Bloque de migración rápida para usuarios existentes */}
+              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3.5 text-xs text-emerald-900 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="font-bold flex items-center gap-1.5 text-emerald-800">
+                    <ShieldCheck className="w-4 h-4 text-[#39A900]" />
+                    <span>Migración Rápida: Activación de Cuentas (Profiles)</span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(`ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS registrado BOOLEAN DEFAULT false;\nALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS password TEXT;\nALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS fecha_registro TIMESTAMP WITH TIME ZONE;`);
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 2000);
+                    }}
+                    className="px-2.5 py-1 bg-[#39A900] hover:bg-[#226d00] text-white font-bold rounded text-[11px] flex items-center gap-1 transition-colors cursor-pointer"
+                  >
+                    <Copy className="w-3 h-3" />
+                    <span>Copiar Migración</span>
+                  </button>
+                </div>
+                <p className="text-[11px] text-emerald-700 leading-relaxed">
+                  Si creaste la tabla <code className="font-mono bg-white px-1 py-0.5 rounded border border-emerald-200">profiles</code> en Supabase anteriormente, ejecuta estas 3 líneas en el SQL Editor para habilitar las columnas de activación en PostgreSQL:
+                </p>
+                <div className="bg-slate-900 text-slate-200 font-mono text-[11px] p-2.5 rounded-lg border border-slate-700">
+                  ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS registrado BOOLEAN DEFAULT false;<br />
+                  ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS password TEXT;<br />
+                  ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS fecha_registro TIMESTAMP WITH TIME ZONE;
+                </div>
+              </div>
+
               <div className="flex items-center justify-between">
-                <span className="text-gray-600 font-medium">
-                  Copia y pega este script en el <strong>SQL Editor</strong> de tu panel de Supabase:
+                <span className="text-gray-600 font-medium text-xs">
+                  Script DDL Completo (Tablas, Triggers de Solapamiento OVERLAPS y RLS):
                 </span>
                 <button
                   onClick={handleCopySQL}
-                  className="flex items-center space-x-1 px-3 py-1.5 bg-[#39A900] hover:bg-[#226d00] text-white font-bold rounded transition-colors cursor-pointer shadow-2xs"
+                  className="flex items-center space-x-1 px-3 py-1.5 bg-[#00324D] hover:bg-[#002236] text-white font-bold rounded transition-colors cursor-pointer shadow-2xs text-xs"
                 >
                   {copied ? (
                     <>
-                      <Check className="w-3.5 h-3.5" />
+                      <Check className="w-3.5 h-3.5 text-[#39A900]" />
                       <span>¡Copiado!</span>
                     </>
                   ) : (
                     <>
                       <Copy className="w-3.5 h-3.5" />
-                      <span>Copiar SQL</span>
+                      <span>Copiar Todo el DDL</span>
                     </>
                   )}
                 </button>
               </div>
 
-              <div className="bg-[#1e1e1e] text-[#d4d4d4] font-mono text-[11px] p-4 rounded-md overflow-x-auto max-h-96 leading-relaxed border border-gray-800">
+              <div className="bg-[#1e1e1e] text-[#d4d4d4] font-mono text-[11px] p-4 rounded-md overflow-x-auto max-h-80 leading-relaxed border border-gray-800">
                 <pre>{sqlScript}</pre>
               </div>
             </div>

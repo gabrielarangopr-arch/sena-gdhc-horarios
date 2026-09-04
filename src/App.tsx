@@ -12,6 +12,9 @@ import { LoginView } from './components/LoginView';
 import { AdminDashboard } from './components/AdminDashboard';
 import { InstructorView } from './components/InstructorView';
 import { AprendizView } from './components/AprendizView';
+import { ExcelGuideModal } from './components/ExcelGuideModal';
+import { UserManualModal } from './components/UserManualModal';
+import { TechnicalManualModal } from './components/TechnicalManualModal';
 import { CheckCircle2, AlertTriangle, ShieldCheck, RefreshCw } from 'lucide-react';
 
 export default function App() {
@@ -21,6 +24,9 @@ export default function App() {
   const [horarios, setHorarios] = useState<Horario[]>([]);
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
   const [currentUser, setCurrentUser] = useState<Profile | null>(null);
+  const [showExcelGuide, setShowExcelGuide] = useState(false);
+  const [showUserManual, setShowUserManual] = useState(false);
+  const [showTechnicalManual, setShowTechnicalManual] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
     try {
       return sessionStorage.getItem('sena_gdhc_logged_in') === 'true';
@@ -201,6 +207,9 @@ export default function App() {
         onMarkAllNotificationsRead={handleMarkAllNotificationsRead}
         onResetData={handleResetData}
         onRefreshData={loadData}
+        onOpenExcelGuide={() => setShowExcelGuide(true)}
+        onOpenUserManual={() => setShowUserManual(true)}
+        onOpenTechnicalManual={() => setShowTechnicalManual(true)}
       />
 
       {/* Floating Alert / Toast */}
@@ -278,6 +287,26 @@ export default function App() {
           </p>
         </div>
       </footer>
+
+      {/* Modales Globales de Documentación y Manuales */}
+      {showExcelGuide && (
+        <ExcelGuideModal
+          initialTab="horarios"
+          onClose={() => setShowExcelGuide(false)}
+        />
+      )}
+
+      {showUserManual && (
+        <UserManualModal
+          onClose={() => setShowUserManual(false)}
+        />
+      )}
+
+      {showTechnicalManual && (
+        <TechnicalManualModal
+          onClose={() => setShowTechnicalManual(false)}
+        />
+      )}
     </div>
   );
 }

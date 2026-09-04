@@ -14,22 +14,24 @@ import {
 import { Profile, Ambiente, Programa, Horario, BulkImportSummary } from '../types';
 import { excelService } from '../services/excelService';
 import { getDiaNombre } from '../services/overlapEngine';
+import { ExcelGuideModal } from './ExcelGuideModal';
 
 interface BulkScheduleUploadModalProps {
-  horarios: Horario[];
+  existingHorarios?: Horario[];
   profiles: Profile[];
   ambientes: Ambiente[];
   programas: Programa[];
-  onCommitPartial: (validHorarios: Array<Omit<Horario, 'id' | 'created_at'>>) => void;
+  onBatchInsert?: (validHorarios: Array<Omit<Horario, 'id' | 'created_at'>>) => void;
   onClose: () => void;
+  isOpen?: boolean;
 }
 
 export const BulkScheduleUploadModal: React.FC<BulkScheduleUploadModalProps> = ({
-  horarios,
+  existingHorarios = [],
   profiles,
   ambientes,
   programas,
-  onCommitPartial,
+  onBatchInsert,
   onClose,
 }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -37,6 +39,7 @@ export const BulkScheduleUploadModal: React.FC<BulkScheduleUploadModalProps> = (
   const [summary, setSummary] = useState<BulkImportSummary | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [showExcelGuide, setShowExcelGuide] = useState(false);
 
   const handleFileChange = async (file: File) => {
     setSelectedFile(file);
@@ -51,7 +54,7 @@ export const BulkScheduleUploadModal: React.FC<BulkScheduleUploadModalProps> = (
         profiles,
         programas,
         ambientes,
-        horarios
+        existingHorarios
       );
       setSummary(result);
     } catch (err: any) {
@@ -85,7 +88,9 @@ export const BulkScheduleUploadModal: React.FC<BulkScheduleUploadModalProps> = (
       .filter(r => r.isValid && r.parsedHorario)
       .map(r => r.parsedHorario!);
 
-    onCommitPartial(validHorarios);
+    if (onBatchInsert) {
+      onBatchInsert(validHorarios);
+    }
     onClose();
   };
 
@@ -124,18 +129,29 @@ export const BulkScheduleUploadModal: React.FC<BulkScheduleUploadModalProps> = (
         {/* Content Body */}
         <div className="p-5 space-y-4 overflow-y-auto flex-1">
           {/* Action Bar: Download Template */}
-          <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-[#f5fcea] border border-[#becbb3] rounded-md">
+          <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-[#f5fcea] border border-[#becbb3] rounded-xl">
             <div className="text-xs text-[#226d00]">
-              <span className="font-bold">¿Necesitas el formato estándar? </span>
-              Descarga la plantilla con encabezados y validaciones institucionales.
+              <span className="font-bold">Formato estándar de horarios SENA: </span>
+              Valida cruces de ambiente e instructor automáticamente.
             </div>
-            <button
-              onClick={() => excelService.downloadHorariosTemplate()}
-              className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#39A900] hover:bg-[#226d00] text-white rounded text-xs font-bold transition-colors cursor-pointer shadow-2xs"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>Descargar Plantilla .xlsx</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowExcelGuide(true)}
+                className="flex items-center space-x-1.5 px-3 py-1.5 bg-white border border-emerald-300 text-emerald-800 rounded-lg text-xs font-bold hover:bg-emerald-50 transition-colors cursor-pointer"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5 text-[#39A900]" />
+                <span>Ver Guía de Columnas</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => excelService.downloadHorariosTemplate()}
+                className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#39A900] hover:bg-[#226d00] text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-2xs"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Descargar Plantilla .xlsx</span>
+              </button>
+            </div>
           </div>
 
           {/* File Upload Area */}
@@ -341,6 +357,13 @@ export const BulkScheduleUploadModal: React.FC<BulkScheduleUploadModalProps> = (
           )}
         </div>
       </div>
+
+      {showExcelGuide && (
+        <ExcelGuideModal
+          initialTab="horarios"
+          onClose={() => setShowExcelGuide(false)}
+        />
+      )}
     </div>
   );
 };

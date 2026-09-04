@@ -18,6 +18,9 @@ export interface Profile {
   especialidad?: string;
   telefono?: string;
   ficha_id?: string; // Para aprendices
+  registrado?: boolean; // false = precargado por admin, true = completó registro
+  password?: string; // Contraseña creada al registrarse
+  fecha_registro?: string; // Fecha en que completó su registro
   created_at: string;
 }
 
