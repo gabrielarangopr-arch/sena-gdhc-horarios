@@ -275,7 +275,7 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
               {DIAS_SEMANA.map(dia => (
                 <th
                   key={dia.id}
-                  className="p-3 text-center text-xs font-bold uppercase tracking-wider border-r border-[#002236] dark:border-slate-800 last:border-r-0"
+                  className="p-3 text-center text-xs font-bold uppercase tracking-wider border-r border-[#002236] dark:border-slate-800 last:border-r-0 hover:bg-[#00283d] dark:hover:bg-slate-900/80 transition-colors"
                 >
                   <div>{dia.nombre}</div>
                   <div className="text-[10px] text-slate-300 dark:text-slate-400 font-normal">Jornada Activa</div>

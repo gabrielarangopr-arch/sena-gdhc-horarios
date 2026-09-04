@@ -48,10 +48,10 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({ onClose }) => 
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-5xl w-full max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 max-w-5xl w-full max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 transition-colors">
         
         {/* Encabezado del Manual */}
-        <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-gradient-to-r from-slate-900 via-[#00324D] to-[#002236] text-white no-print">
+        <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-slate-900 via-[#00324D] to-[#002236] text-white no-print">
           <div className="flex items-center gap-3.5">
             <div className="w-11 h-11 rounded-2xl bg-[#39A900]/20 border border-[#39A900]/40 flex items-center justify-center text-[#39A900] shadow-xs">
               <BookOpen className="w-6 h-6" />
@@ -92,7 +92,7 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({ onClose }) => 
         <div className="flex-1 flex overflow-hidden">
           
           {/* Navegación Lateral */}
-          <div className="w-64 bg-slate-50 border-r border-slate-200 p-4 space-y-3 overflow-y-auto hidden md:block no-print">
+          <div className="w-64 bg-slate-50 dark:bg-slate-950/80 border-r border-slate-200 dark:border-slate-800 p-4 space-y-3 overflow-y-auto hidden md:block no-print">
             <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-2">
               Índice de Contenido
             </div>
@@ -104,7 +104,7 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({ onClose }) => 
                   className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer ${
                     activeSection === s.id
                       ? 'bg-[#39A900] text-white shadow-xs'
-                      : 'text-slate-700 hover:bg-slate-200/70'
+                      : 'text-slate-700 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-800'
                   }`}
                 >
                   <span className="truncate">{s.label}</span>
@@ -113,9 +113,9 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({ onClose }) => 
               ))}
             </nav>
 
-            <div className="pt-4 border-t border-slate-200">
-              <div className="bg-white p-3 rounded-xl border border-slate-200/80 text-[11px] text-slate-600 space-y-1">
-                <div className="font-bold text-slate-900 flex items-center gap-1">
+            <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
+              <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 text-[11px] text-slate-600 dark:text-slate-400 space-y-1">
+                <div className="font-bold text-slate-900 dark:text-slate-200 flex items-center gap-1">
                   <CheckCircle2 className="w-3.5 h-3.5 text-[#39A900]" />
                   <span>SENA Colombia</span>
                 </div>
@@ -125,7 +125,7 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({ onClose }) => 
           </div>
 
           {/* Área de Lectura */}
-          <div className="flex-1 p-6 overflow-y-auto text-slate-700 space-y-8 print:p-0 print:overflow-visible">
+          <div className="flex-1 p-6 overflow-y-auto text-slate-700 dark:text-slate-300 space-y-8 print:p-0 print:overflow-visible">
             
             {/* Cabecera institucional imprimible */}
             <div className="border-b border-slate-200 pb-4 mb-4">

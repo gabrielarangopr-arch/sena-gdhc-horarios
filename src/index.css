@@ -51,6 +51,10 @@
   background-color: #f9fbf7;
 }
 
+.dark .schedule-grid-cell:hover {
+  background-color: rgba(30, 41, 59, 0.45);
+}
+
 /* Custom Scrollbar for heavy data grids */
 ::-webkit-scrollbar {
   width: 6px;
@@ -61,13 +65,25 @@
   background: #f1f1f1;
 }
 
+.dark ::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+
 ::-webkit-scrollbar-thumb {
   background: #becbb3;
   border-radius: 4px;
 }
 
+.dark ::-webkit-scrollbar-thumb {
+  background: #334155;
+}
+
 ::-webkit-scrollbar-thumb:hover {
   background: #6f7b66;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #475569;
 }
 
 @media print {

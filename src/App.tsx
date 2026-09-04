@@ -325,6 +325,7 @@ export default function App() {
             onUpdateHorario={handleUpdateHorario}
             onDeleteHorario={handleDeleteHorario}
             onBatchInsertHorarios={handleBatchInsertHorarios}
+            onOpenTechnicalManual={() => setShowTechnicalManual(true)}
           />
         )}
 

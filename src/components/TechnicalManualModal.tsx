@@ -122,10 +122,10 @@ CREATE INDEX IF NOT EXISTS idx_horarios_dia_programa ON public.horarios (dia_sem
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-5xl w-full max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 max-w-5xl w-full max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 transition-colors">
         
         {/* Encabezado del Manual */}
-        <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-gradient-to-r from-slate-950 via-[#002236] to-[#001524] text-white no-print">
+        <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-slate-950 via-[#002236] to-[#001524] text-white no-print">
           <div className="flex items-center gap-3.5">
             <div className="w-11 h-11 rounded-2xl bg-sky-500/20 border border-sky-400/40 flex items-center justify-center text-sky-400 shadow-xs">
               <Code2 className="w-6 h-6" />
@@ -166,7 +166,7 @@ CREATE INDEX IF NOT EXISTS idx_horarios_dia_programa ON public.horarios (dia_sem
         <div className="flex-1 flex overflow-hidden">
           
           {/* Navegación Lateral */}
-          <div className="w-64 bg-slate-50 border-r border-slate-200 p-4 space-y-3 overflow-y-auto hidden md:block no-print">
+          <div className="w-64 bg-slate-50 dark:bg-slate-950/80 border-r border-slate-200 dark:border-slate-800 p-4 space-y-3 overflow-y-auto hidden md:block no-print">
             <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-2">
               Secciones Técnicas
             </div>
@@ -178,7 +178,7 @@ CREATE INDEX IF NOT EXISTS idx_horarios_dia_programa ON public.horarios (dia_sem
                   className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer ${
                     activeSection === s.id
                       ? 'bg-sky-600 text-white shadow-xs'
-                      : 'text-slate-700 hover:bg-slate-200/70'
+                      : 'text-slate-700 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-800'
                   }`}
                 >
                   <span className="truncate">{s.label}</span>
@@ -187,9 +187,9 @@ CREATE INDEX IF NOT EXISTS idx_horarios_dia_programa ON public.horarios (dia_sem
               ))}
             </nav>
 
-            <div className="pt-4 border-t border-slate-200 text-[11px] text-slate-500 space-y-2">
-              <div className="font-bold text-slate-700 flex items-center gap-1.5">
-                <Terminal className="w-3.5 h-3.5 text-sky-600" />
+            <div className="pt-4 border-t border-slate-200 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400 space-y-2">
+              <div className="font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                <Terminal className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
                 <span>Stack: React + Supabase</span>
               </div>
               <p>TypeScript estricto, PostgREST y algoritmos de intervalo $O(N)$ en memoria.</p>
@@ -197,16 +197,16 @@ CREATE INDEX IF NOT EXISTS idx_horarios_dia_programa ON public.horarios (dia_sem
           </div>
 
           {/* Área de Lectura */}
-          <div className="flex-1 p-6 overflow-y-auto text-slate-700 space-y-8 print:p-0 print:overflow-visible">
+          <div className="flex-1 p-6 overflow-y-auto text-slate-700 dark:text-slate-300 space-y-8 print:p-0 print:overflow-visible">
             
             {/* Cabecera Técnica */}
-            <div className="border-b border-slate-200 pb-4 mb-4">
+            <div className="border-b border-slate-200 dark:border-slate-800 pb-4 mb-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-xl font-black text-slate-900 tracking-tight font-mono">
+                  <h2 className="text-xl font-black text-slate-900 dark:text-slate-100 tracking-tight font-mono">
                     ESPECIFICACIÓN TÉCNICA Y DE ARQUITECTURA
                   </h2>
-                  <p className="text-xs text-slate-500 font-medium">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
                     Servicio Nacional de Aprendizaje (SENA) • Plataforma GDHC
                   </p>
                 </div>

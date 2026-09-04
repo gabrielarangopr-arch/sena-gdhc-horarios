@@ -28,10 +28,10 @@ export const ExcelGuideModal: React.FC<ExcelGuideModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 transition-colors">
         
         {/* Cabecera del Modal */}
-        <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-gradient-to-r from-slate-900 via-[#00324D] to-[#002236] text-white">
+        <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-slate-900 via-[#00324D] to-[#002236] text-white">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-[#39A900]/20 border border-[#39A900]/40 flex items-center justify-center text-[#39A900]">
               <FileSpreadsheet className="w-5 h-5" />
@@ -55,14 +55,14 @@ export const ExcelGuideModal: React.FC<ExcelGuideModalProps> = ({
         </div>
 
         {/* Selector de Pestañas */}
-        <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between flex-wrap gap-3">
-          <div className="flex p-1 bg-slate-200/80 rounded-xl">
+        <div className="p-4 bg-slate-50 dark:bg-slate-950/80 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between flex-wrap gap-3">
+          <div className="flex p-1 bg-slate-200/80 dark:bg-slate-800 rounded-xl">
             <button
               onClick={() => setActiveTab('horarios')}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 activeTab === 'horarios'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               <Calendar className="w-4 h-4 text-[#39A900]" />
@@ -72,11 +72,11 @@ export const ExcelGuideModal: React.FC<ExcelGuideModalProps> = ({
               onClick={() => setActiveTab('usuarios')}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 activeTab === 'usuarios'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
-              <Users className="w-4 h-4 text-sky-600" />
+              <Users className="w-4 h-4 text-sky-600 dark:text-sky-400" />
               <span>2. Tabla de Usuarios (Instructores y Aprendices)</span>
             </button>
           </div>
@@ -103,28 +103,28 @@ export const ExcelGuideModal: React.FC<ExcelGuideModalProps> = ({
         </div>
 
         {/* Contenido con Scroll */}
-        <div className="p-6 overflow-y-auto space-y-6 flex-1 text-slate-700 text-xs leading-relaxed">
+        <div className="p-6 overflow-y-auto space-y-6 flex-1 text-slate-700 dark:text-slate-300 text-xs leading-relaxed">
           
           {/* TAB 1: HORARIOS */}
           {activeTab === 'horarios' && (
             <div className="space-y-5">
-              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-start gap-3">
+              <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-xl p-4 flex items-start gap-3">
                 <Info className="w-5 h-5 text-[#39A900] shrink-0 mt-0.5" />
                 <div>
-                  <h4 className="font-bold text-emerald-950 text-sm mb-1">
+                  <h4 className="font-bold text-emerald-950 dark:text-emerald-200 text-sm mb-1">
                     Estructura requerida para Horarios de Formación
                   </h4>
-                  <p className="text-emerald-800 leading-relaxed">
-                    La primera fila de tu archivo Excel (<code className="font-mono bg-white px-1.5 py-0.5 rounded border border-emerald-300">Fila 1</code>) debe contener los encabezados exactos de columna indicados a continuación. El orden de las columnas no afecta el procesamiento siempre y cuando los nombres coincidan.
+                  <p className="text-emerald-800 dark:text-emerald-300 leading-relaxed">
+                    La primera fila de tu archivo Excel (<code className="font-mono bg-white dark:bg-slate-800 px-1.5 py-0.5 rounded border border-emerald-300 dark:border-emerald-700">Fila 1</code>) debe contener los encabezados exactos de columna indicados a continuación. El orden de las columnas no afecta el procesamiento siempre y cuando los nombres coincidan.
                   </p>
                 </div>
               </div>
 
               {/* Tabla de Columnas */}
-              <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
+              <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-2xs">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
+                    <tr className="bg-slate-100 dark:bg-slate-800/90 text-slate-700 dark:text-slate-200 font-bold border-b border-slate-200 dark:border-slate-700">
                       <th className="p-3">Nombre Columna (Encabezado)</th>
                       <th className="p-3">Tipo / Formato</th>
                       <th className="p-3">Requerido</th>
@@ -132,53 +132,53 @@ export const ExcelGuideModal: React.FC<ExcelGuideModalProps> = ({
                       <th className="p-3">Descripción</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-200">
-                    <tr className="hover:bg-slate-50/80">
-                      <td className="p-3 font-mono font-bold text-slate-900">cedula_instructor</td>
+                  <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                    <tr className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50">
+                      <td className="p-3 font-mono font-bold text-slate-900 dark:text-slate-100">cedula_instructor</td>
                       <td className="p-3">Texto / Número</td>
-                      <td className="p-3"><span className="text-emerald-700 font-bold">Sí</span></td>
+                      <td className="p-3"><span className="text-emerald-700 dark:text-emerald-400 font-bold">Sí</span></td>
                       <td className="p-3 font-mono">71987654</td>
                       <td className="p-3">Cédula del instructor. Debe coincidir con un instructor previamente registrado en la plataforma.</td>
                     </tr>
-                    <tr className="hover:bg-slate-50/80">
-                      <td className="p-3 font-mono font-bold text-slate-900">codigo_ficha</td>
+                    <tr className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50">
+                      <td className="p-3 font-mono font-bold text-slate-900 dark:text-slate-100">codigo_ficha</td>
                       <td className="p-3">Texto / Número</td>
-                      <td className="p-3"><span className="text-emerald-700 font-bold">Sí</span></td>
+                      <td className="p-3"><span className="text-emerald-700 dark:text-emerald-400 font-bold">Sí</span></td>
                       <td className="p-3 font-mono">2824356</td>
                       <td className="p-3">Número de ficha del programa. Debe existir en el listado de Programas / Fichas.</td>
                     </tr>
-                    <tr className="hover:bg-slate-50/80">
-                      <td className="p-3 font-mono font-bold text-slate-900">numero_ambiente</td>
+                    <tr className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50">
+                      <td className="p-3 font-mono font-bold text-slate-900 dark:text-slate-100">numero_ambiente</td>
                       <td className="p-3">Texto</td>
-                      <td className="p-3"><span className="text-emerald-700 font-bold">Sí</span></td>
+                      <td className="p-3"><span className="text-emerald-700 dark:text-emerald-400 font-bold">Sí</span></td>
                       <td className="p-3 font-mono">Ambiente 301</td>
                       <td className="p-3">Número o identificador del aula/laboratorio. Debe existir en Ambientes de Aprendizaje.</td>
                     </tr>
-                    <tr className="hover:bg-slate-50/80">
-                      <td className="p-3 font-mono font-bold text-slate-900">dia_semana</td>
+                    <tr className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50">
+                      <td className="p-3 font-mono font-bold text-slate-900 dark:text-slate-100">dia_semana</td>
                       <td className="p-3">Número (1-6) o Texto</td>
-                      <td className="p-3"><span className="text-emerald-700 font-bold">Sí</span></td>
+                      <td className="p-3"><span className="text-emerald-700 dark:text-emerald-400 font-bold">Sí</span></td>
                       <td className="p-3 font-mono">1 ó "Lunes"</td>
                       <td className="p-3">Día de la semana: 1 (Lunes), 2 (Martes), 3 (Miércoles), 4 (Jueves), 5 (Viernes), 6 (Sábado).</td>
                     </tr>
-                    <tr className="hover:bg-slate-50/80">
-                      <td className="p-3 font-mono font-bold text-slate-900">hora_inicio</td>
+                    <tr className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50">
+                      <td className="p-3 font-mono font-bold text-slate-900 dark:text-slate-100">hora_inicio</td>
                       <td className="p-3 font-mono">HH:MM (24h)</td>
-                      <td className="p-3"><span className="text-emerald-700 font-bold">Sí</span></td>
+                      <td className="p-3"><span className="text-emerald-700 dark:text-emerald-400 font-bold">Sí</span></td>
                       <td className="p-3 font-mono">07:00</td>
                       <td className="p-3">Hora de inicio de la sesión en formato 24 horas (ej. 07:00, 14:00).</td>
                     </tr>
-                    <tr className="hover:bg-slate-50/80">
-                      <td className="p-3 font-mono font-bold text-slate-900">hora_fin</td>
+                    <tr className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50">
+                      <td className="p-3 font-mono font-bold text-slate-900 dark:text-slate-100">hora_fin</td>
                       <td className="p-3 font-mono">HH:MM (24h)</td>
-                      <td className="p-3"><span className="text-emerald-700 font-bold">Sí</span></td>
+                      <td className="p-3"><span className="text-emerald-700 dark:text-emerald-400 font-bold">Sí</span></td>
                       <td className="p-3 font-mono">13:00</td>
                       <td className="p-3">Hora de finalización. Debe ser posterior a la hora de inicio (ej. 13:00, 18:00).</td>
                     </tr>
-                    <tr className="hover:bg-slate-50/80">
-                      <td className="p-3 font-mono font-bold text-slate-900">competencia</td>
+                    <tr className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50">
+                      <td className="p-3 font-mono font-bold text-slate-900 dark:text-slate-100">competencia</td>
                       <td className="p-3">Texto</td>
-                      <td className="p-3"><span className="text-emerald-700 font-bold">Sí</span></td>
+                      <td className="p-3"><span className="text-emerald-700 dark:text-emerald-400 font-bold">Sí</span></td>
                       <td className="p-3 font-mono">Bases de Datos</td>
                       <td className="p-3">Nombre de la competencia, materia o resultado de aprendizaje a impartir.</td>
                     </tr>
@@ -188,7 +188,7 @@ export const ExcelGuideModal: React.FC<ExcelGuideModalProps> = ({
 
               {/* Vista Previa Ejemplo Visual */}
               <div>
-                <h5 className="font-bold text-slate-900 mb-2 flex items-center gap-1.5">
+                <h5 className="font-bold text-slate-900 dark:text-slate-100 mb-2 flex items-center gap-1.5">
                   <CheckCircle2 className="w-4 h-4 text-[#39A900]" />
                   <span>Ejemplo de filas válidas en el archivo Excel:</span>
                 </h5>
@@ -201,12 +201,12 @@ export const ExcelGuideModal: React.FC<ExcelGuideModalProps> = ({
               </div>
 
               {/* Reglas y Validaciones de Solapamiento */}
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-amber-900 space-y-2">
-                <div className="flex items-center gap-2 font-bold text-amber-950">
-                  <AlertTriangle className="w-4 h-4 text-amber-600" />
+              <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl p-4 text-amber-900 dark:text-amber-200 space-y-2">
+                <div className="flex items-center gap-2 font-bold text-amber-950 dark:text-amber-200">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                   <span>Validaciones de Integridad y Detección de Conflictos (OVERLAPS):</span>
                 </div>
-                <ul className="list-disc list-inside space-y-1 text-amber-800">
+                <ul className="list-disc list-inside space-y-1 text-amber-800 dark:text-amber-300">
                   <li><strong>Instructor Ocupado:</strong> Un instructor no puede tener asignadas dos clases al mismo tiempo en el mismo día.</li>
                   <li><strong>Ambiente Ocupado:</strong> Un aula o laboratorio no puede albergar dos fichas simultáneas en el mismo horario.</li>
                   <li><strong>Ficha Ocupada:</strong> Una ficha de aprendices no puede recibir dos materias a la misma hora.</li>
@@ -219,23 +219,23 @@ export const ExcelGuideModal: React.FC<ExcelGuideModalProps> = ({
           {/* TAB 2: USUARIOS */}
           {activeTab === 'usuarios' && (
             <div className="space-y-5">
-              <div className="bg-sky-50 border border-sky-200 rounded-xl p-4 flex items-start gap-3">
-                <Info className="w-5 h-5 text-sky-600 shrink-0 mt-0.5" />
+              <div className="bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-900 rounded-xl p-4 flex items-start gap-3">
+                <Info className="w-5 h-5 text-sky-600 dark:text-sky-400 shrink-0 mt-0.5" />
                 <div>
-                  <h4 className="font-bold text-sky-950 text-sm mb-1">
+                  <h4 className="font-bold text-sky-950 dark:text-sky-200 text-sm mb-1">
                     Estructura requerida para Carga Masiva de Usuarios
                   </h4>
-                  <p className="text-sky-800 leading-relaxed">
+                  <p className="text-sky-800 dark:text-sky-300 leading-relaxed">
                     Permite pre-registrar instructores y aprendices en lote. Una vez cargados, cada usuario podrá ingresar a la pestaña <strong>"Activar Cuenta"</strong> para registrar su contraseña personal usando su documento de identidad.
                   </p>
                 </div>
               </div>
 
               {/* Tabla de Columnas Usuarios */}
-              <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
+              <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-2xs">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
+                    <tr className="bg-slate-100 dark:bg-slate-800/90 text-slate-700 dark:text-slate-200 font-bold border-b border-slate-200 dark:border-slate-700">
                       <th className="p-3">Nombre Columna</th>
                       <th className="p-3">Tipo</th>
                       <th className="p-3">Requerido</th>
@@ -243,53 +243,53 @@ export const ExcelGuideModal: React.FC<ExcelGuideModalProps> = ({
                       <th className="p-3">Descripción</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-200">
-                    <tr className="hover:bg-slate-50/80">
-                      <td className="p-3 font-mono font-bold text-slate-900">cedula</td>
+                  <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                    <tr className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50">
+                      <td className="p-3 font-mono font-bold text-slate-900 dark:text-slate-100">cedula</td>
                       <td className="p-3">Texto / Número</td>
-                      <td className="p-3"><span className="text-emerald-700 font-bold">Sí</span></td>
+                      <td className="p-3"><span className="text-emerald-700 dark:text-emerald-400 font-bold">Sí</span></td>
                       <td className="p-3 font-mono">1098765432</td>
                       <td className="p-3">Cédula o número de documento único. Clave principal de activación.</td>
                     </tr>
-                    <tr className="hover:bg-slate-50/80">
-                      <td className="p-3 font-mono font-bold text-slate-900">nombre_completo</td>
+                    <tr className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50">
+                      <td className="p-3 font-mono font-bold text-slate-900 dark:text-slate-100">nombre_completo</td>
                       <td className="p-3">Texto</td>
-                      <td className="p-3"><span className="text-emerald-700 font-bold">Sí</span></td>
+                      <td className="p-3"><span className="text-emerald-700 dark:text-emerald-400 font-bold">Sí</span></td>
                       <td className="p-3">Nombres y Apellidos</td>
                       <td className="p-3">Nombre completo del instructor o aprendiz tal como aparecerá en los reportes.</td>
                     </tr>
-                    <tr className="hover:bg-slate-50/80">
-                      <td className="p-3 font-mono font-bold text-slate-900">email</td>
+                    <tr className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50">
+                      <td className="p-3 font-mono font-bold text-slate-900 dark:text-slate-100">email</td>
                       <td className="p-3">Correo válido</td>
-                      <td className="p-3"><span className="text-emerald-700 font-bold">Sí</span></td>
+                      <td className="p-3"><span className="text-emerald-700 dark:text-emerald-400 font-bold">Sí</span></td>
                       <td className="p-3 font-mono">usuario@sena.edu.co</td>
                       <td className="p-3">Correo institucional o personal para recuperación de contraseña y avisos.</td>
                     </tr>
-                    <tr className="hover:bg-slate-50/80">
-                      <td className="p-3 font-mono font-bold text-slate-900">rol</td>
+                    <tr className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50">
+                      <td className="p-3 font-mono font-bold text-slate-900 dark:text-slate-100">rol</td>
                       <td className="p-3">Texto</td>
-                      <td className="p-3"><span className="text-emerald-700 font-bold">Sí</span></td>
+                      <td className="p-3"><span className="text-emerald-700 dark:text-emerald-400 font-bold">Sí</span></td>
                       <td className="p-3 font-mono">"instructor" | "aprendiz"</td>
                       <td className="p-3">Rol institucional dentro de la plataforma (debe ser en minúsculas).</td>
                     </tr>
-                    <tr className="hover:bg-slate-50/80">
-                      <td className="p-3 font-mono font-bold text-slate-900">especialidad</td>
+                    <tr className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50">
+                      <td className="p-3 font-mono font-bold text-slate-900 dark:text-slate-100">especialidad</td>
                       <td className="p-3">Texto</td>
-                      <td className="p-3"><span className="text-slate-500">Opcional</span></td>
+                      <td className="p-3"><span className="text-slate-500 dark:text-slate-400">Opcional</span></td>
                       <td className="p-3">Área de formación</td>
                       <td className="p-3">Especialidad del instructor (ej. Inteligencia Artificial, Telemática, Contabilidad).</td>
                     </tr>
-                    <tr className="hover:bg-slate-50/80">
-                      <td className="p-3 font-mono font-bold text-slate-900">telefono</td>
+                    <tr className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50">
+                      <td className="p-3 font-mono font-bold text-slate-900 dark:text-slate-100">telefono</td>
                       <td className="p-3">Texto / Número</td>
-                      <td className="p-3"><span className="text-slate-500">Opcional</span></td>
+                      <td className="p-3"><span className="text-slate-500 dark:text-slate-400">Opcional</span></td>
                       <td className="p-3 font-mono">3101234567</td>
                       <td className="p-3">Número de contacto telefónico o celular.</td>
                     </tr>
-                    <tr className="hover:bg-slate-50/80">
-                      <td className="p-3 font-mono font-bold text-slate-900">codigo_ficha</td>
+                    <tr className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50">
+                      <td className="p-3 font-mono font-bold text-slate-900 dark:text-slate-100">codigo_ficha</td>
                       <td className="p-3">Texto / Número</td>
-                      <td className="p-3"><span className="text-amber-700 font-bold">Requerido para Aprendices</span></td>
+                      <td className="p-3"><span className="text-amber-700 dark:text-amber-400 font-bold">Requerido para Aprendices</span></td>
                       <td className="p-3 font-mono">2824356</td>
                       <td className="p-3">Código de la ficha de formación a la que pertenece el aprendiz. Los instructores pueden dejarlo en blanco.</td>
                     </tr>
@@ -299,8 +299,8 @@ export const ExcelGuideModal: React.FC<ExcelGuideModalProps> = ({
 
               {/* Ejemplo Visual Usuarios */}
               <div>
-                <h5 className="font-bold text-slate-900 mb-2 flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4 text-sky-600" />
+                <h5 className="font-bold text-slate-900 dark:text-slate-100 mb-2 flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-sky-600 dark:text-sky-400" />
                   <span>Ejemplo de filas válidas en el Excel de Usuarios:</span>
                 </h5>
                 <div className="bg-slate-900 text-slate-100 font-mono text-[11px] p-4 rounded-xl overflow-x-auto border border-slate-800 leading-relaxed">
@@ -315,14 +315,14 @@ export const ExcelGuideModal: React.FC<ExcelGuideModalProps> = ({
         </div>
 
         {/* Pie del Modal */}
-        <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-slate-500 text-[11px]">
+        <div className="p-4 bg-slate-50 dark:bg-slate-950/80 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-[11px]">
             <HelpCircle className="w-4 h-4 text-[#39A900]" />
             <span>Formatos admitidos: <strong>.xlsx</strong> y <strong>.xls</strong> (Microsoft Excel)</span>
           </div>
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer"
+            className="px-4 py-2 bg-slate-800 dark:bg-slate-700 hover:bg-slate-900 dark:hover:bg-slate-600 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer"
           >
             Entendido, cerrar guía
           </button>

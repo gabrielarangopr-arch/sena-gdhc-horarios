@@ -12,7 +12,8 @@ import {
   Sparkles,
   Clock,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Code2
 } from 'lucide-react';
 import { Profile, Horario, Programa, Ambiente, OverlapConflict } from '../types';
 import { ScheduleMatrix } from './ScheduleMatrix';
@@ -34,6 +35,7 @@ interface AdminDashboardProps {
   onUpdateHorario: (id: string, updates: Partial<Horario>) => Promise<boolean>;
   onDeleteHorario: (id: string) => void;
   onBatchInsertHorarios: (validHorarios: Array<Omit<Horario, 'id' | 'created_at'>>) => void;
+  onOpenTechnicalManual?: () => void;
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
@@ -47,6 +49,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onUpdateHorario,
   onDeleteHorario,
   onBatchInsertHorarios,
+  onOpenTechnicalManual,
 }) => {
   const [activeTab, setActiveTab] = useState<'matrix' | 'users' | 'programas' | 'ambientes'>('matrix');
 
@@ -147,6 +150,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
             {/* Acciones Rápidas en Cabecera */}
             <div className="flex items-center gap-2">
+              {onOpenTechnicalManual && (
+                <button
+                  onClick={onOpenTechnicalManual}
+                  id="btn-admin-technical-manual"
+                  className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer border border-indigo-200/80 dark:border-indigo-800"
+                  title="Consultar Manual Técnico y Esquema SQL"
+                >
+                  <Code2 className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                  <span className="hidden sm:inline">Manual Técnico</span>
+                </button>
+              )}
+
               <button
                 onClick={() => setShowBulkUploadModal(true)}
                 id="btn-admin-bulk-excel"

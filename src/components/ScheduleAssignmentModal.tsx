@@ -100,9 +100,9 @@ export const ScheduleAssignmentModal: React.FC<ScheduleAssignmentModalProps> = (
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs animate-in fade-in">
-      <div className="bg-white rounded-md shadow-xl max-w-lg w-full border border-[#E0E0E0] overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl max-w-lg w-full border border-slate-200 dark:border-slate-800 overflow-hidden transition-colors">
         {/* Modal Header */}
-        <div className="bg-[#00324D] text-white p-4 flex items-center justify-between">
+        <div className="bg-[#00324D] dark:bg-slate-950 text-white p-4 flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <Calendar className="w-5 h-5 text-[#39A900]" />
             <h3 className="text-sm sm:text-base font-bold">
@@ -111,7 +111,7 @@ export const ScheduleAssignmentModal: React.FC<ScheduleAssignmentModalProps> = (
           </div>
           <button
             onClick={onClose}
-            className="text-gray-300 hover:text-white p-1 rounded-sm hover:bg-white/10 transition-colors"
+            className="text-gray-300 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -122,16 +122,16 @@ export const ScheduleAssignmentModal: React.FC<ScheduleAssignmentModalProps> = (
           {/* Live Validation Indicator Banner */}
           {liveConflict && (
             <div
-              className={`p-3 rounded-md border text-xs flex items-start space-x-2.5 transition-all ${
+              className={`p-3 rounded-xl border text-xs flex items-start space-x-2.5 transition-all ${
                 liveConflict.hasConflict
-                  ? 'bg-[#FFEBEE] border-[#ffcdd2] text-[#b71c1c]'
-                  : 'bg-[#f5fcea] border-[#becbb3] text-[#226d00]'
+                  ? 'bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-900 text-red-700 dark:text-red-300'
+                  : 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300'
               }`}
             >
               {liveConflict.hasConflict ? (
-                <AlertCircle className="w-4 h-4 text-[#D32F2F] shrink-0 mt-0.5" />
+                <AlertCircle className="w-4 h-4 text-[#D32F2F] dark:text-red-400 shrink-0 mt-0.5" />
               ) : (
-                <CheckCircle2 className="w-4 h-4 text-[#39A900] shrink-0 mt-0.5" />
+                <CheckCircle2 className="w-4 h-4 text-[#39A900] dark:text-emerald-400 shrink-0 mt-0.5" />
               )}
               <div className="flex-1">
                 <span className="font-bold">
@@ -143,22 +143,22 @@ export const ScheduleAssignmentModal: React.FC<ScheduleAssignmentModalProps> = (
           )}
 
           {formError && (
-            <div className="p-2.5 bg-red-50 border border-red-200 text-red-700 text-xs rounded">
+            <div className="p-2.5 bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-xs rounded-xl">
               {formError}
             </div>
           )}
 
           {/* Ficha / Programa */}
           <div>
-            <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1 flex items-center">
-              <BookOpen className="w-3.5 h-3.5 mr-1 text-[#00324D]" />
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1 flex items-center">
+              <BookOpen className="w-3.5 h-3.5 mr-1 text-[#00324D] dark:text-emerald-400" />
               Programa / Ficha de Formación *
             </label>
             <select
               value={programaId}
               onChange={e => setProgramaId(e.target.value)}
               required
-              className="w-full p-2 bg-white border border-gray-300 rounded text-xs focus:ring-2 focus:ring-[#39A900] focus:outline-hidden"
+              className="w-full p-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-[#39A900] focus:outline-hidden"
             >
               {programas.map(p => (
                 <option key={p.id} value={p.id}>
@@ -170,7 +170,7 @@ export const ScheduleAssignmentModal: React.FC<ScheduleAssignmentModalProps> = (
 
           {/* Instructor Selector */}
           <div>
-            <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1 flex items-center">
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1 flex items-center">
               <User className="w-3.5 h-3.5 mr-1 text-[#39A900]" />
               Instructor Responsable *
             </label>
@@ -178,7 +178,7 @@ export const ScheduleAssignmentModal: React.FC<ScheduleAssignmentModalProps> = (
               value={instructorId}
               onChange={e => setInstructorId(e.target.value)}
               required
-              className="w-full p-2 bg-white border border-gray-300 rounded text-xs focus:ring-2 focus:ring-[#39A900] focus:outline-hidden"
+              className="w-full p-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-[#39A900] focus:outline-hidden"
             >
               {instructors.map(inst => (
                 <option key={inst.id} value={inst.id}>
@@ -190,15 +190,15 @@ export const ScheduleAssignmentModal: React.FC<ScheduleAssignmentModalProps> = (
 
           {/* Ambiente / Salón */}
           <div>
-            <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1 flex items-center">
-              <MapPin className="w-3.5 h-3.5 mr-1 text-[#0288D1]" />
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1 flex items-center">
+              <MapPin className="w-3.5 h-3.5 mr-1 text-[#0288D1] dark:text-sky-400" />
               Ambiente / Espacio de Formación *
             </label>
             <select
               value={ambienteId}
               onChange={e => setAmbienteId(e.target.value)}
               required
-              className="w-full p-2 bg-white border border-gray-300 rounded text-xs focus:ring-2 focus:ring-[#39A900] focus:outline-hidden"
+              className="w-full p-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-[#39A900] focus:outline-hidden"
             >
               {ambientes.map(amb => (
                 <option key={amb.id} value={amb.id}>
@@ -211,14 +211,14 @@ export const ScheduleAssignmentModal: React.FC<ScheduleAssignmentModalProps> = (
           {/* Día de la Semana y Horarios */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1 flex items-center">
-                <Calendar className="w-3.5 h-3.5 mr-1 text-gray-500" />
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1 flex items-center">
+                <Calendar className="w-3.5 h-3.5 mr-1 text-slate-500" />
                 Día *
               </label>
               <select
                 value={diaSemana}
                 onChange={e => setDiaSemana(Number(e.target.value))}
-                className="w-full p-2 bg-white border border-gray-300 rounded text-xs focus:ring-2 focus:ring-[#39A900] focus:outline-hidden"
+                className="w-full p-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-[#39A900] focus:outline-hidden"
               >
                 {DIAS_SEMANA.map(d => (
                   <option key={d.id} value={d.id}>
@@ -229,8 +229,8 @@ export const ScheduleAssignmentModal: React.FC<ScheduleAssignmentModalProps> = (
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1 flex items-center">
-                <Clock className="w-3.5 h-3.5 mr-1 text-gray-500" />
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1 flex items-center">
+                <Clock className="w-3.5 h-3.5 mr-1 text-slate-500" />
                 Hora Inicio *
               </label>
               <input
@@ -238,13 +238,13 @@ export const ScheduleAssignmentModal: React.FC<ScheduleAssignmentModalProps> = (
                 value={horaInicio}
                 onChange={e => setHoraInicio(e.target.value)}
                 required
-                className="w-full p-2 bg-white border border-gray-300 rounded text-xs focus:ring-2 focus:ring-[#39A900] focus:outline-hidden"
+                className="w-full p-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-[#39A900] focus:outline-hidden"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1 flex items-center">
-                <Clock className="w-3.5 h-3.5 mr-1 text-gray-500" />
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1 flex items-center">
+                <Clock className="w-3.5 h-3.5 mr-1 text-slate-500" />
                 Hora Fin *
               </label>
               <input
@@ -252,14 +252,14 @@ export const ScheduleAssignmentModal: React.FC<ScheduleAssignmentModalProps> = (
                 value={horaFin}
                 onChange={e => setHoraFin(e.target.value)}
                 required
-                className="w-full p-2 bg-white border border-gray-300 rounded text-xs focus:ring-2 focus:ring-[#39A900] focus:outline-hidden"
+                className="w-full p-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-[#39A900] focus:outline-hidden"
               />
             </div>
           </div>
 
           {/* Materia / Competencia */}
           <div>
-            <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
               Competencia / Resultado de Aprendizaje / Materia *
             </label>
             <input
@@ -268,25 +268,25 @@ export const ScheduleAssignmentModal: React.FC<ScheduleAssignmentModalProps> = (
               onChange={e => setMateriaCompetencia(e.target.value)}
               required
               placeholder="Ej: Construcción de Bases de Datos Relacionales y NoSQL"
-              className="w-full p-2 bg-white border border-gray-300 rounded text-xs focus:ring-2 focus:ring-[#39A900] focus:outline-hidden"
+              className="w-full p-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:ring-2 focus:ring-[#39A900] focus:outline-hidden"
             />
           </div>
 
           {/* Form Actions */}
-          <div className="pt-3 border-t border-gray-200 flex items-center justify-end space-x-2">
+          <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end space-x-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-3 py-2 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded transition-colors cursor-pointer"
+              className="px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-colors cursor-pointer"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={Boolean(liveConflict?.hasConflict)}
-              className={`px-4 py-2 text-xs font-bold text-white rounded transition-colors shadow-xs cursor-pointer ${
+              className={`px-4 py-2 text-xs font-bold text-white rounded-xl transition-colors shadow-xs cursor-pointer ${
                 liveConflict?.hasConflict
-                  ? 'bg-gray-400 cursor-not-allowed opacity-60'
+                  ? 'bg-slate-400 dark:bg-slate-700 cursor-not-allowed opacity-60'
                   : 'bg-[#39A900] hover:bg-[#226d00]'
               }`}
             >
