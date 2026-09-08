@@ -10,6 +10,8 @@ import { Profile, Horario, Programa, Ambiente, Notificacion } from './types';
 import { Header } from './components/Header';
 import { LandingPage } from './components/LandingPage';
 import { LoginView } from './components/LoginView';
+import { ActivateAccountView } from './components/ActivateAccountView';
+import { PasswordRecoveryView } from './components/PasswordRecoveryView';
 import { AdminDashboard } from './components/AdminDashboard';
 import { InstructorView } from './components/InstructorView';
 import { AprendizView } from './components/AprendizView';
@@ -29,8 +31,8 @@ export default function App() {
   const [showUserManual, setShowUserManual] = useState(false);
   const [showTechnicalManual, setShowTechnicalManual] = useState(false);
   
-  // Estado de navegación antes de iniciar sesión (landing, login, register)
-  const [authView, setAuthView] = useState<'landing' | 'login' | 'register'>('landing');
+  // Estado de navegación antes de iniciar sesión (landing, login, activate, recovery)
+  const [authView, setAuthView] = useState<'landing' | 'login' | 'activate' | 'recovery'>('landing');
 
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
     try {
@@ -67,12 +69,22 @@ export default function App() {
     setAmbientes(ambs);
     setHorarios(hors);
 
-    const activeProfile = profs.find(p => p.id === currentId) || profs[0];
-    setCurrentUser(activeProfile);
-
-    // Cargar notificaciones del usuario actual o globales
-    const notifs = db.getNotificaciones(activeProfile?.id);
-    setNotificaciones(notifs);
+    // SEGURIDAD: Nunca auto-promover a admin si currentId no es válido o está vacío
+    const activeProfile = profs.find(p => p.id === currentId);
+    if (activeProfile) {
+      setCurrentUser(activeProfile);
+      setNotificaciones(db.getNotificaciones(activeProfile.id));
+    } else {
+      // Si la sesión guardada no corresponde a ningún usuario existente, limpiar estado
+      try {
+        sessionStorage.removeItem('sena_gdhc_logged_in');
+      } catch {
+        // ignore
+      }
+      setIsLoggedIn(false);
+      setCurrentUser(null);
+      setNotificaciones([]);
+    }
   }, []);
 
   useEffect(() => {
@@ -100,6 +112,8 @@ export default function App() {
     } catch {
       // ignore
     }
+    db.setCurrentUserId('');
+    setCurrentUser(null);
     setIsLoggedIn(false);
     setAuthView('landing');
     showToast('Has cerrado la sesión correctamente.', 'info');
@@ -182,7 +196,7 @@ export default function App() {
   // VISTA PÚBLICA (CUANDO NO SE HA INICIADO SESIÓN)
   // =========================================================================
   if (!isLoggedIn) {
-    // Si la pantalla activa es el Landing Page (Nuevo Main)
+    // 1. Pantalla de Inicio / Landing Page con Fondos Institucionales
     if (authView === 'landing') {
       return (
         <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
@@ -192,7 +206,7 @@ export default function App() {
             ambientes={ambientes.length > 0 ? ambientes : db.getAmbientes()}
             horarios={horarios.length > 0 ? horarios : db.getHorarios()}
             onGoToLogin={() => setAuthView('login')}
-            onGoToRegister={() => setAuthView('register')}
+            onGoToRegister={() => setAuthView('activate')}
             onOpenExcelGuide={() => setShowExcelGuide(true)}
             onOpenUserManual={() => setShowUserManual(true)}
             onOpenTechnicalManual={() => setShowTechnicalManual(true)}
@@ -221,7 +235,36 @@ export default function App() {
       );
     }
 
-    // Si la pantalla activa es el Inicio de Sesión o Registro
+    // 2. Pantalla Exclusiva e Independiente de Activación de Cuenta
+    if (authView === 'activate') {
+      return (
+        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
+          <ActivateAccountView
+            profiles={profiles.length > 0 ? profiles : db.getProfiles()}
+            onLogin={handleLogin}
+            onRefreshData={loadData}
+            onGoToLogin={() => setAuthView('login')}
+            onBackToLanding={() => setAuthView('landing')}
+          />
+        </div>
+      );
+    }
+
+    // 3. Pantalla Exclusiva e Independiente de Recuperación de Contraseña
+    if (authView === 'recovery') {
+      return (
+        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
+          <PasswordRecoveryView
+            profiles={profiles.length > 0 ? profiles : db.getProfiles()}
+            onRefreshData={loadData}
+            onGoToLogin={() => setAuthView('login')}
+            onBackToLanding={() => setAuthView('landing')}
+          />
+        </div>
+      );
+    }
+
+    // 4. Pantalla Exclusiva de Inicio de Sesión
     return (
       <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
         <LoginView
@@ -229,7 +272,8 @@ export default function App() {
           onLogin={handleLogin}
           onRefreshData={loadData}
           onBackToLanding={() => setAuthView('landing')}
-          initialTab={authView === 'register' ? 'register' : 'login'}
+          onGoToActivate={() => setAuthView('activate')}
+          onGoToRecovery={() => setAuthView('recovery')}
         />
 
         {/* Modales Globales */}

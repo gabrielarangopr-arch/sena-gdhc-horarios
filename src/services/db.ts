@@ -40,6 +40,7 @@ export const SEED_PROFILES: Profile[] = [
     especialidad: 'Coordinación Académica GDHC',
     telefono: '3105551234',
     registrado: true,
+    password: 'Admin2026*',
     created_at: new Date('2026-01-01T08:00:00Z').toISOString(),
   },
 ];
@@ -57,11 +58,19 @@ class SenaDatabaseService {
   private notificacionesCache: Notificacion[] = [];
   private isSyncing = false;
 
+  private inMemoryFallback: Record<string, string> = {};
+
   private getStorageItem<T>(key: string, fallback: T): T {
     try {
-      const data = localStorage.getItem(key);
-      if (!data) return fallback;
-      return JSON.parse(data) as T;
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const data = window.localStorage.getItem(key);
+        if (!data) return fallback;
+        return JSON.parse(data) as T;
+      }
+      if (this.inMemoryFallback[key]) {
+        return JSON.parse(this.inMemoryFallback[key]) as T;
+      }
+      return fallback;
     } catch {
       return fallback;
     }
@@ -69,9 +78,13 @@ class SenaDatabaseService {
 
   private setStorageItem<T>(key: string, value: T): void {
     try {
-      localStorage.setItem(key, JSON.stringify(value));
+      const serialized = JSON.stringify(value);
+      this.inMemoryFallback[key] = serialized;
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem(key, serialized);
+      }
     } catch (e) {
-      console.error('Error saving to localStorage:', e);
+      console.error('Error saving storage item:', e);
     }
   }
 
@@ -80,7 +93,21 @@ class SenaDatabaseService {
   }
 
   public initializeFromStorage(): void {
-    this.profilesCache = this.getStorageItem<Profile[]>(STORAGE_KEYS.PROFILES, SEED_PROFILES);
+    let profs = this.getStorageItem<Profile[]>(STORAGE_KEYS.PROFILES, SEED_PROFILES);
+    // Parche de seguridad: Garantizar que todo administrador tenga contraseña y esté registrado
+    let modified = false;
+    profs = profs.map(p => {
+      if (p.rol === 'admin' && (!p.password || p.password.trim() === '')) {
+        modified = true;
+        return { ...p, password: 'Admin2026*', registrado: true };
+      }
+      return p;
+    });
+    if (modified) {
+      this.setStorageItem(STORAGE_KEYS.PROFILES, profs);
+    }
+
+    this.profilesCache = profs;
     this.programasCache = this.getStorageItem<Programa[]>(STORAGE_KEYS.PROGRAMAS, SEED_PROGRAMAS);
     this.ambientesCache = this.getStorageItem<Ambiente[]>(STORAGE_KEYS.AMBIENTES, SEED_AMBIENTES);
     this.horariosCache = this.getStorageItem<Horario[]>(STORAGE_KEYS.HORARIOS, SEED_HORARIOS);
@@ -1006,8 +1033,10 @@ class SenaDatabaseService {
 
   // --- CARGA MASIVA DE HORARIOS CON OVERLAPS ---
   public async bulkInsertHorarios(rows: Array<Omit<Horario, 'id' | 'created_at'>>, skipConflicts: boolean = false): Promise<{
+    success: boolean;
     insertedCount: number;
     conflicts: Array<{ row: Omit<Horario, 'id' | 'created_at'>; reason: string }>;
+    error?: string;
   }> {
     let currentHorarios = [...this.getHorarios()];
     const profiles = this.getProfiles();
@@ -1046,7 +1075,7 @@ class SenaDatabaseService {
     }
 
     if (conflicts.length > 0 && !skipConflicts) {
-      return { insertedCount: 0, conflicts };
+      return { success: false, insertedCount: 0, conflicts };
     }
 
     const supabase = getSupabaseClient();
@@ -1068,7 +1097,7 @@ class SenaDatabaseService {
         if (!error && data) {
           this.horariosCache = [...this.horariosCache, ...data];
           this.setStorageItem(STORAGE_KEYS.HORARIOS, this.horariosCache);
-          return { insertedCount: data.length, conflicts };
+          return { success: true, insertedCount: data.length, conflicts };
         }
       } catch (err) {
         console.error('Supabase bulk insert error:', err);
@@ -1080,7 +1109,7 @@ class SenaDatabaseService {
       this.setStorageItem(STORAGE_KEYS.HORARIOS, this.horariosCache);
     }
 
-    return { insertedCount: validToInsert.length, conflicts };
+    return { success: true, insertedCount: validToInsert.length, conflicts };
   }
 
   public async batchInsertHorarios(rows: Array<Omit<Horario, 'id' | 'created_at'>>, skipConflicts: boolean = false) {
