@@ -99,8 +99,8 @@ export const ActivateAccountView: React.FC<ActivateAccountViewProps> = ({
 
     if (!foundProfile) return;
 
-    if (!password || password.length < 6) {
-      setError('La contraseña debe tener un mínimo de 6 caracteres para garantizar tu seguridad.');
+    if (!password || password.length < 8) {
+      setError('La contraseña debe tener un mínimo de 8 caracteres para garantizar la seguridad institucional de tu cuenta.');
       return;
     }
 

@@ -4,7 +4,7 @@ export const SENA_LOGO_URL = 'https://senacertificados.co/wp-content/uploads/202
 
 interface SenaLogoProps {
   className?: string;
-  variant?: 'color' | 'white' | 'dark';
+  variant?: 'color' | 'white' | 'dark' | 'on-dark';
   size?: 'sm' | 'md' | 'lg' | 'xl';
   showText?: boolean;
   subtext?: string;
@@ -25,9 +25,10 @@ export const SenaLogo: React.FC<SenaLogoProps> = ({
 
   const isWhite = variant === 'white';
   const isDark = variant === 'dark';
+  const isOnDark = variant === 'on-dark';
 
-  const textColor = isWhite ? 'text-white' : 'text-[#00324D] dark:text-white';
-  const subtextColor = isWhite ? 'text-white/80' : 'text-slate-500 dark:text-slate-400';
+  const textColor = isWhite || isOnDark ? 'text-white' : 'text-[#00324D] dark:text-white';
+  const subtextColor = isWhite ? 'text-white/80' : isOnDark ? 'text-slate-300' : 'text-slate-500 dark:text-slate-400';
 
   const imgSizes = {
     sm: 'w-7 h-7',

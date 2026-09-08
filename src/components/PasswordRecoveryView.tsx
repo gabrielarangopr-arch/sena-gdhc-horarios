@@ -97,8 +97,8 @@ export const PasswordRecoveryView: React.FC<PasswordRecoveryViewProps> = ({
 
     if (!foundProfile) return;
 
-    if (!newPassword || newPassword.length < 6) {
-      setError('La nueva contraseña debe tener al menos 6 caracteres.');
+    if (!newPassword || newPassword.length < 8) {
+      setError('La nueva contraseña debe tener al menos 8 caracteres para cumplir con los estándares de seguridad.');
       return;
     }
 

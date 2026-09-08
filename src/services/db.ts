@@ -29,7 +29,7 @@ export function generateUUID(): string {
   });
 }
 
-// Seed Data Inicial Institucional del SENA (Único Administrador Registrado con UUID válido)
+// Seed Data Inicial Institucional del SENA (Administrador Inicial en Censo para Activación Segura)
 export const SEED_PROFILES: Profile[] = [
   {
     id: '00000000-0000-0000-0000-000000000001',
@@ -39,8 +39,8 @@ export const SEED_PROFILES: Profile[] = [
     rol: 'admin',
     especialidad: 'Coordinación Académica GDHC',
     telefono: '3105551234',
-    registrado: true,
-    password: 'Admin2026*',
+    registrado: false, // En producción el usuario activa su cuenta y define su propia contraseña confidencial
+    password: '',
     created_at: new Date('2026-01-01T08:00:00Z').toISOString(),
   },
 ];
@@ -94,12 +94,13 @@ class SenaDatabaseService {
 
   public initializeFromStorage(): void {
     let profs = this.getStorageItem<Profile[]>(STORAGE_KEYS.PROFILES, SEED_PROFILES);
-    // Parche de seguridad: Garantizar que todo administrador tenga contraseña y esté registrado
+    
+    // Purga estricta de seguridad en producción: Eliminar cualquier credencial de prueba de prototipo
     let modified = false;
     profs = profs.map(p => {
-      if (p.rol === 'admin' && (!p.password || p.password.trim() === '')) {
+      if (p.password === 'Admin2026*') {
         modified = true;
-        return { ...p, password: 'Admin2026*', registrado: true };
+        return { ...p, password: '', registrado: false };
       }
       return p;
     });
@@ -519,31 +520,54 @@ class SenaDatabaseService {
    * Busca un usuario por cédula tanto en caché local como en Supabase en tiempo real
    */
   public async findProfileByCedula(cedula: string): Promise<Profile | null> {
-    const cleanCedula = cedula.trim();
-    if (!cleanCedula) return null;
+    return this.findProfileByIdentifier(cedula);
+  }
 
-    // 1. Revisar caché local primero
-    const local = this.getProfiles().find(p => p.cedula.trim() === cleanCedula);
+  /**
+   * Busca un usuario por cédula o correo electrónico en caché local y en Supabase en tiempo real
+   */
+  public async findProfileByIdentifier(identifier: string): Promise<Profile | null> {
+    const clean = identifier.trim().toLowerCase();
+    if (!clean) return null;
+
+    // 1. Revisar caché local primero por cédula o por email
+    const local = this.getProfiles().find(
+      p => p.cedula.trim().toLowerCase() === clean || p.email.trim().toLowerCase() === clean
+    );
     if (local) return local;
 
     // 2. Si no está en caché, consultar a Supabase en vivo
     const supabase = getSupabaseClient();
     if (supabase) {
       try {
-        const { data, error } = await supabase
+        // Buscar por cédula o por email
+        let { data, error } = await supabase
           .from('profiles')
           .select('*')
-          .eq('cedula', cleanCedula)
+          .eq('cedula', clean)
           .maybeSingle();
 
+        if ((error || !data) && clean.includes('@')) {
+          const emailRes = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('email', clean)
+            .maybeSingle();
+          if (!emailRes.error && emailRes.data) {
+            data = emailRes.data;
+            error = null;
+          }
+        }
+
         if (!error && data) {
-          const cached = this.getProfiles().find(p => p.id === data.id || p.cedula.trim() === cleanCedula);
-          const isAdmin = data.rol === 'admin' || cached?.rol === 'admin';
+          const cached = this.getProfiles().find(p => p.id === data.id || p.cedula.trim() === clean || p.email.trim().toLowerCase() === clean);
+          const finalPassword = data.password || cached?.password;
+          const hasPassword = Boolean(finalPassword && finalPassword.trim() !== '');
           const merged: Profile = {
             ...cached,
             ...data,
-            registrado: isAdmin ? true : (data.registrado !== undefined ? data.registrado : (cached?.registrado ?? false)),
-            password: data.password || cached?.password,
+            registrado: hasPassword ? (data.registrado ?? true) : false,
+            password: finalPassword || '',
             fecha_registro: data.fecha_registro || cached?.fecha_registro,
           };
           this.profilesCache = [...this.profilesCache.filter(p => p.id !== data.id), merged];
@@ -551,7 +575,7 @@ class SenaDatabaseService {
           return merged;
         }
       } catch (e) {
-        console.warn('Error fetching profile by cedula from Supabase:', e);
+        console.warn('Error fetching profile by identifier from Supabase:', e);
       }
     }
 
