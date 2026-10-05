@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Code2, 
   X, 
@@ -15,14 +15,57 @@ import {
   GitBranch,
   Terminal,
   FileCode2,
-  Workflow
+  Workflow,
+  RefreshCw,
+  AlertTriangle
 } from 'lucide-react';
+import { getSupabaseConfig, saveSupabaseConfig, testSupabaseConnection } from '../services/supabaseClient';
+import { db } from '../services/db';
 
 interface TechnicalManualModalProps {
   onClose: () => void;
 }
 
 export const TechnicalManualModal: React.FC<TechnicalManualModalProps> = ({ onClose }) => {
+  const [supabaseUrl, setSupabaseUrl] = useState('');
+  const [supabaseAnonKey, setSupabaseAnonKey] = useState('');
+  const [isTestingSupabase, setIsTestingSupabase] = useState(false);
+  const [supabaseTestResult, setSupabaseTestResult] = useState<{ success: boolean; message: string; isPausedOrNetwork?: boolean } | null>(null);
+  const [isSavingSupabase, setIsSavingSupabase] = useState(false);
+  const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    const cfg = getSupabaseConfig();
+    setSupabaseUrl(cfg.url || '');
+    setSupabaseAnonKey(cfg.anonKey || '');
+  }, []);
+
+  const handleTestConnection = async () => {
+    setIsTestingSupabase(true);
+    setSupabaseTestResult(null);
+    setSaveSuccessMsg(null);
+    const res = await testSupabaseConnection(supabaseUrl.trim(), supabaseAnonKey.trim());
+    setSupabaseTestResult(res);
+    setIsTestingSupabase(false);
+  };
+
+  const handleSaveConnection = async () => {
+    setIsSavingSupabase(true);
+    saveSupabaseConfig({
+      url: supabaseUrl.trim(),
+      anonKey: supabaseAnonKey.trim(),
+      connected: supabaseTestResult?.success || Boolean(supabaseUrl.trim() && supabaseAnonKey.trim()),
+      lastTested: new Date().toISOString()
+    });
+    // Trigger sync
+    if (supabaseUrl.trim() && supabaseAnonKey.trim()) {
+      await db.syncFromSupabase();
+    }
+    setIsSavingSupabase(false);
+    setSaveSuccessMsg('Parámetros guardados y sincronizados correctamente.');
+    setTimeout(() => setSaveSuccessMsg(null), 4000);
+  };
+
   const [activeSection, setActiveSection] = useState<string>('arch');
   const [copiedSql, setCopiedSql] = useState(false);
 
@@ -453,6 +496,100 @@ CREATE INDEX IF NOT EXISTS idx_horarios_dia_programa ON public.horarios (dia_sem
                   <div><span className="text-sky-400">VITE_SUPABASE_ANON_KEY</span>=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...</div>
                   <div><span className="text-emerald-400">PORT</span>=3000</div>
                   <div><span className="text-emerald-400">HOST</span>=0.0.0.0</div>
+                </div>
+
+                {/* Administrador y Diagnóstico de Conexión en Vivo con Supabase */}
+                <div className="mt-4 p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                      <Database className="w-4 h-4 text-[#39A900]" />
+                      <span>Diagnóstico y Configuración de Conexión Supabase</span>
+                    </h4>
+                    <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-800">
+                      Fallback Resiliente Activo
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Si reactivaste tu proyecto tras un período de inactividad o tu URL/Key cambió, puedes verificar y actualizar los parámetros de conexión aquí sin interrumpir la operación del sistema:
+                  </p>
+
+                  <div className="space-y-2">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        URL del Proyecto Supabase
+                      </label>
+                      <input
+                        type="text"
+                        value={supabaseUrl}
+                        onChange={e => setSupabaseUrl(e.target.value)}
+                        placeholder="https://tu-proyecto.supabase.co"
+                        className="w-full px-3 py-2 text-xs font-mono bg-white border border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-[#39A900] focus:outline-hidden"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        Anon Public Key
+                      </label>
+                      <input
+                        type="password"
+                        value={supabaseAnonKey}
+                        onChange={e => setSupabaseAnonKey(e.target.value)}
+                        placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                        className="w-full px-3 py-2 text-xs font-mono bg-white border border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-[#39A900] focus:outline-hidden"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={handleTestConnection}
+                      disabled={isTestingSupabase || !supabaseUrl.trim() || !supabaseAnonKey.trim()}
+                      className="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${isTestingSupabase ? 'animate-spin' : ''}`} />
+                      <span>{isTestingSupabase ? 'Probando...' : 'Probar Conexión'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveConnection}
+                      disabled={isSavingSupabase || !supabaseUrl.trim() || !supabaseAnonKey.trim()}
+                      className="px-3.5 py-1.5 bg-[#39A900] hover:bg-[#2e8800] text-white text-xs font-bold rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>{isSavingSupabase ? 'Guardando...' : 'Guardar y Sincronizar'}</span>
+                    </button>
+                  </div>
+
+                  {saveSuccessMsg && (
+                    <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>{saveSuccessMsg}</span>
+                    </div>
+                  )}
+
+                  {supabaseTestResult && (
+                    <div
+                      className={`p-3 rounded-lg border text-xs flex items-start gap-2 ${
+                        supabaseTestResult.success
+                          ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                          : 'bg-amber-50 border-amber-200 text-amber-900'
+                      }`}
+                    >
+                      {supabaseTestResult.success ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                      ) : (
+                        <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      )}
+                      <div>
+                        <div className="font-bold">
+                          {supabaseTestResult.success ? 'Conexión Exitosa con Supabase' : 'Diagnóstico de Red'}
+                        </div>
+                        <div className="mt-0.5 leading-relaxed">{supabaseTestResult.message}</div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </section>
             )}

@@ -135,8 +135,26 @@ export const LoginView: React.FC<LoginViewProps> = ({
       setFailedAttempts(0);
       setLockoutTime(null);
       onLogin(found);
-    } catch {
-      setLoginError('Ocurrió un error al verificar los datos de acceso.');
+    } catch (err: any) {
+      console.warn('Error en handleLoginSubmit:', err);
+      // Fallback local en caso de que la red con Supabase arroje TypeError: Failed to fetch
+      const localFallback = profiles.find(
+        p => p.cedula.trim().toLowerCase() === cleanInput || p.email.trim().toLowerCase() === cleanInput
+      );
+      if (localFallback) {
+        if (!localFallback.registrado || !localFallback.password) {
+          setLoginError('Tu documento está registrado en el censo, pero aún no has activado tu cuenta. Por favor haz clic en "Activar mi Cuenta" para crear tu contraseña.');
+        } else if (loginPassword !== localFallback.password) {
+          setLoginError('La contraseña ingresada es incorrecta.');
+        } else {
+          setFailedAttempts(0);
+          setLockoutTime(null);
+          onLogin(localFallback);
+          return;
+        }
+      } else {
+        setLoginError('Ocurrió un inconveniente al conectar con el servidor. Si el proyecto de Supabase está despertando de su pausa, reintenta en unos segundos.');
+      }
     } finally {
       setLoginLoading(false);
     }

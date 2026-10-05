@@ -50,6 +50,31 @@ export const SEED_AMBIENTES: Ambiente[] = [];
 export const SEED_HORARIOS: Horario[] = [];
 export const SEED_NOTIFICACIONES: Notificacion[] = [];
 
+
+/**
+ * Detecta si un error devuelto por Supabase o Fetch es un error de conectividad/red/servidor pausado
+ */
+export function isSupabaseNetworkOrFetchError(errOrMsg: any): boolean {
+  if (!errOrMsg) return false;
+  const msg = (typeof errOrMsg === 'string' ? errOrMsg : (errOrMsg.message || errOrMsg.error_description || String(errOrMsg))).toLowerCase();
+  return (
+    msg.includes('failed to fetch') ||
+    msg.includes('networkerror') ||
+    msg.includes('network request failed') ||
+    msg.includes('enotfound') ||
+    msg.includes('econnrefused') ||
+    msg.includes('fetch failed') ||
+    msg.includes('conexion con supabase') ||
+    msg.includes('conexión con supabase') ||
+    msg.includes('502') ||
+    msg.includes('503') ||
+    msg.includes('504') ||
+    msg.includes('paused') ||
+    msg.includes('timeout') ||
+    msg.includes('abort')
+  );
+}
+
 class SenaDatabaseService {
   private profilesCache: Profile[] = [];
   private programasCache: Programa[] = [];
@@ -104,10 +129,14 @@ class SenaDatabaseService {
       }
       return p;
     });
+    const hasAdmin = profs.some(p => p.rol === "admin" || p.cedula === "1020405060");
+    if (!hasAdmin) {
+      profs = [...SEED_PROFILES, ...profs];
+      modified = true;
+    }
     if (modified) {
       this.setStorageItem(STORAGE_KEYS.PROFILES, profs);
     }
-
     this.profilesCache = profs;
     this.programasCache = this.getStorageItem<Programa[]>(STORAGE_KEYS.PROGRAMAS, SEED_PROGRAMAS);
     this.ambientesCache = this.getStorageItem<Ambiente[]>(STORAGE_KEYS.AMBIENTES, SEED_AMBIENTES);
@@ -131,29 +160,40 @@ class SenaDatabaseService {
 
     this.isSyncing = true;
     try {
-      // 1. Perfiles
-      const { data: profs, error: pErr } = await supabase
+            const { data: profs, error: pErr } = await supabase
         .from('profiles')
         .select('*')
         .order('created_at', { ascending: true });
 
       if (pErr) {
-        console.warn('Error fetching profiles from Supabase:', pErr);
+        console.warn('Error fetching profiles from Supabase (posible pausa o red):', pErr);
       } else if (profs) {
-        // Combinar con la caché local para preservar campos de activación si la tabla en Supabase aún no los tiene
+        // Combinar con la caché local preservando los perfiles locales activos y contraseñas creadas
+        const remoteIds = new Set(profs.map(r => r.id));
+        const remoteCedulas = new Set(profs.map(r => r.cedula));
+        
         const mergedProfiles = profs.map(remote => {
           const local = this.profilesCache.find(l => l.id === remote.id || l.cedula === remote.cedula);
-          const isAdmin = remote.rol === 'admin' || local?.rol === 'admin';
+          // Si el usuario ya activó su cuenta localmente (tiene contraseña), preservar su estado activado
+          const localHasPassword = Boolean(local?.password && local.password.trim() !== '');
+          const localRegistrado = local?.registrado ?? false;
+          const remoteHasPassword = Boolean(remote.password && remote.password.trim() !== '');
+          const isRegistrado = localHasPassword ? true : (remoteHasPassword ? true : (remote.registrado ?? localRegistrado));
+          
           return {
             ...local,
             ...remote,
-            registrado: isAdmin ? true : (remote.registrado !== undefined ? remote.registrado : (local?.registrado ?? false)),
-            password: remote.password || local?.password,
+            registrado: isRegistrado,
+            password: remote.password || local?.password || '',
             fecha_registro: remote.fecha_registro || local?.fecha_registro,
           };
         });
-        this.profilesCache = mergedProfiles;
-        this.setStorageItem(STORAGE_KEYS.PROFILES, mergedProfiles);
+
+        // Mantener perfiles locales que no estén aún en el remoto (ej. perfiles creados offline o admin inicial)
+        const localOnly = this.profilesCache.filter(l => !remoteIds.has(l.id) && !remoteCedulas.has(l.cedula));
+        const combined = [...mergedProfiles, ...localOnly];
+        this.profilesCache = combined;
+        this.setStorageItem(STORAGE_KEYS.PROFILES, combined);
       }
 
       // 2. Programas
@@ -337,6 +377,12 @@ class SenaDatabaseService {
               return { success: true, profile: merged };
             }
           }
+          if (isSupabaseNetworkOrFetchError(error)) {
+            console.warn('Supabase sin conexión o pausado al crear perfil. Almacenando en modo local resiliente:', error);
+            this.profilesCache = [...this.profilesCache, newProfile];
+            this.setStorageItem(STORAGE_KEYS.PROFILES, this.profilesCache);
+            return { success: true, profile: newProfile };
+          }
           return { success: false, error: `Error de Supabase: ${error.message}` };
         }
 
@@ -346,6 +392,12 @@ class SenaDatabaseService {
           return { success: true, profile: data };
         }
       } catch (err: any) {
+        if (isSupabaseNetworkOrFetchError(err)) {
+          console.warn('Fallo de red con Supabase en createProfile. Guardando en modo local resiliente.');
+          this.profilesCache = [...this.profilesCache, newProfile];
+          this.setStorageItem(STORAGE_KEYS.PROFILES, this.profilesCache);
+          return { success: true, profile: newProfile };
+        }
         return { success: false, error: err?.message || 'Error de conexión con Supabase.' };
       }
     }
@@ -455,14 +507,18 @@ class SenaDatabaseService {
         }
 
         if (lastError) {
-          console.warn('Supabase updateProfile error, persisting locally:', lastError);
-          const isSchemaError = lastError.message && (
-            lastError.message.includes('schema cache') ||
-            lastError.message.includes('column')
-          );
-          if (!isSchemaError) {
+          console.warn('Supabase updateProfile error, evaluando fallback resiliente:', lastError);
+          const isSchemaOrNetworkError = 
+            isSupabaseNetworkOrFetchError(lastError) ||
+            (lastError.message && (
+              lastError.message.includes('schema cache') ||
+              lastError.message.includes('column') ||
+              lastError.message.includes('not found')
+            ));
+          if (!isSchemaOrNetworkError) {
             return { success: false, error: `Error de Supabase: ${lastError.message}` };
           }
+          console.info('Supabase pausado o error de esquema en updateProfile: persistiendo cambio de perfil en almacenamiento institucional local.');
         }
 
         const finalProfile: Profile = {
@@ -480,7 +536,7 @@ class SenaDatabaseService {
         this.setStorageItem(STORAGE_KEYS.PROFILES, this.profilesCache);
         return { success: true, profile: finalProfile };
       } catch (err: any) {
-        console.error('Error in updateProfile Supabase:', err);
+        console.warn('Error/Fallo de conexión en updateProfile Supabase, aplicando persistencia local:', err);
       }
     }
 
@@ -504,7 +560,11 @@ class SenaDatabaseService {
       try {
         const { error } = await supabase.from('profiles').delete().eq('id', id);
         if (error) {
-          return { success: false, error: `Error de Supabase: ${error.message}` };
+          if (isSupabaseNetworkOrFetchError(error)) {
+            console.warn('Supabase offline en deleteProfile, eliminando en caché local.');
+          } else {
+            return { success: false, error: `Error de Supabase: ${error.message}` };
+          }
         }
       } catch (err: any) {
         return { success: false, error: err?.message || 'Error al eliminar en Supabase.' };
@@ -575,7 +635,7 @@ class SenaDatabaseService {
           return merged;
         }
       } catch (e) {
-        console.warn('Error fetching profile by identifier from Supabase:', e);
+        console.warn('Supabase no disponible o pausado al buscar perfil en tiempo real (TypeError: Failed to fetch u offline). Utilizando datos locales:', e);
       }
     }
 
@@ -690,6 +750,12 @@ class SenaDatabaseService {
           .single();
 
         if (error) {
+          if (isSupabaseNetworkOrFetchError(error)) {
+            console.warn('Supabase offline en createPrograma, guardando localmente.');
+            this.programasCache = [...this.programasCache, newProg];
+            this.setStorageItem(STORAGE_KEYS.PROGRAMAS, this.programasCache);
+            return { success: true, programa: newProg };
+          }
           return { success: false, error: `Error de Supabase: ${error.message}` };
         }
 
@@ -721,17 +787,23 @@ class SenaDatabaseService {
         const payload: any = { ...updates };
         delete payload.id;
         delete payload.created_at;
-
         const { data, error } = await supabase.from('programas').update(payload).eq('id', id).select().single();
-        if (error) return { success: false, error: `Error de Supabase: ${error.message}` };
-
+        if (error) {
+          if (isSupabaseNetworkOrFetchError(error)) {
+            console.warn('Supabase offline en updatePrograma, actualizando localmente.');
+          } else {
+            return { success: false, error: `Error de Supabase: ${error.message}` };
+          }
+        }
         if (data) {
           this.programasCache = this.programasCache.map(p => (p.id === id ? { ...p, ...data } : p));
           this.setStorageItem(STORAGE_KEYS.PROGRAMAS, this.programasCache);
           return { success: true, programa: data };
         }
       } catch (err: any) {
-        return { success: false, error: err?.message };
+        if (!isSupabaseNetworkOrFetchError(err)) {
+          return { success: false, error: err?.message };
+        }
       }
     }
 
@@ -750,7 +822,13 @@ class SenaDatabaseService {
     if (supabase) {
       try {
         const { error } = await supabase.from('programas').delete().eq('id', id);
-        if (error) return { success: false, error: `Error de Supabase: ${error.message}` };
+        if (error) {
+          if (isSupabaseNetworkOrFetchError(error)) {
+            console.warn('Supabase offline en updatePrograma, actualizando localmente.');
+          } else {
+            return { success: false, error: `Error de Supabase: ${error.message}` };
+          }
+        }
       } catch (err: any) {
         return { success: false, error: err?.message };
       }
@@ -806,7 +884,13 @@ class SenaDatabaseService {
           .select()
           .single();
 
-        if (error) return { success: false, error: `Error de Supabase: ${error.message}` };
+        if (error) {
+          if (isSupabaseNetworkOrFetchError(error)) {
+            console.warn('Supabase offline en deletePrograma, eliminando localmente.');
+          } else {
+            return { success: false, error: `Error de Supabase: ${error.message}` };
+          }
+        }
 
         if (data) {
           this.ambientesCache = [...this.ambientesCache, data];
@@ -834,7 +918,13 @@ class SenaDatabaseService {
         delete payload.created_at;
 
         const { data, error } = await supabase.from('ambientes').update(payload).eq('id', id).select().single();
-        if (error) return { success: false, error: `Error de Supabase: ${error.message}` };
+        if (error) {
+          if (isSupabaseNetworkOrFetchError(error)) {
+            console.warn('Supabase offline en updateAmbiente, actualizando localmente.');
+          } else {
+            return { success: false, error: `Error de Supabase: ${error.message}` };
+          }
+        }
 
         if (data) {
           this.ambientesCache = this.ambientesCache.map(a => (a.id === id ? { ...a, ...data } : a));
@@ -861,7 +951,13 @@ class SenaDatabaseService {
     if (supabase) {
       try {
         const { error } = await supabase.from('ambientes').delete().eq('id', id);
-        if (error) return { success: false, error: `Error de Supabase: ${error.message}` };
+        if (error) {
+          if (isSupabaseNetworkOrFetchError(error)) {
+            console.warn('Supabase offline en updateAmbiente, actualizando localmente.');
+          } else {
+            return { success: false, error: `Error de Supabase: ${error.message}` };
+          }
+        }
       } catch (err: any) {
         return { success: false, error: err?.message };
       }
@@ -950,6 +1046,18 @@ class SenaDatabaseService {
           .single();
 
         if (error) {
+          if (isSupabaseNetworkOrFetchError(error)) {
+            console.warn('Supabase offline/pausado en createHorario. Guardando localmente:', error);
+            this.horariosCache = [...this.horariosCache, newHorario];
+            this.setStorageItem(STORAGE_KEYS.HORARIOS, this.horariosCache);
+            this.createNotification({
+              usuario_id: newHorario.instructor_id,
+              titulo: 'Nueva Asignación de Clase',
+              mensaje: `Se le ha asignado la competencia "${newHorario.materia_competencia}".`,
+              tipo: 'horario_nuevo',
+            });
+            return { success: true, horario: newHorario };
+          }
           return { success: false, error: `Error de Supabase (OVERLAPS Trigger): ${error.message}` };
         }
 
@@ -1021,7 +1129,13 @@ class SenaDatabaseService {
         delete payload.created_at;
 
         const { data, error } = await supabase.from('horarios').update(payload).eq('id', id).select().single();
-        if (error) return { success: false, error: `Error de Supabase: ${error.message}` };
+        if (error) {
+          if (isSupabaseNetworkOrFetchError(error)) {
+            console.warn('Supabase offline en deleteHorario, eliminando localmente.');
+          } else {
+            return { success: false, error: `Error de Supabase: ${error.message}` };
+          }
+        }
 
         if (data) {
           this.horariosCache = this.horariosCache.map(h => (h.id === id ? { ...h, ...data } : h));
@@ -1044,7 +1158,13 @@ class SenaDatabaseService {
     if (supabase) {
       try {
         const { error } = await supabase.from('horarios').delete().eq('id', id);
-        if (error) return { success: false, error: `Error de Supabase: ${error.message}` };
+        if (error) {
+          if (isSupabaseNetworkOrFetchError(error)) {
+            console.warn('Supabase offline en updateHorario, actualizando localmente.');
+          } else {
+            return { success: false, error: `Error de Supabase: ${error.message}` };
+          }
+        }
       } catch (err: any) {
         return { success: false, error: err?.message };
       }
